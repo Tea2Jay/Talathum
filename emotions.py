@@ -98,8 +98,8 @@ cv2.ocl.setUseOpenCL(False)
 emotion_dict = {0: "Angry", 1: "Happy", 2: "Sad"}
 
 # start the webcam feed
-# cap = cv2.VideoCapture(0,cv2.CAP_DSHOW)
-cap = cv2.VideoCapture("C:/Users/3izzo/Desktop/Projects/Talathum/WIN_20211021_23_20_21_Pro.mp4")
+cap = cv2.VideoCapture(0,cv2.CAP_DSHOW)
+# cap = cv2.VideoCapture("C:/Users/3izzo/Desktop/Projects/Talathum/WIN_20211021_23_20_21_Pro.mp4")
 sleep(10)
 facecasc = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
 # sleep(1)
