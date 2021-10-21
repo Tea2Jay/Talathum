@@ -1,7 +1,14 @@
+from realTimeLatentWalk import LatentWalkerController
+
+controller = LatentWalkerController() 
+
+
+from time import sleep
 import numpy as np
 import argparse
 import matplotlib.pyplot as plt
 import cv2
+import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, Flatten
 from tensorflow.keras.layers import Conv2D
@@ -9,14 +16,10 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import MaxPooling2D
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-# command line argument
-ap = argparse.ArgumentParser()
-ap.add_argument("--mode",help="train/display")
-mode = ap.parse_args().mode
+# Hide GPU from visible devices
+tf.config.set_visible_devices([], 'GPU')
 
-# plots accuracy and loss curves
 def plot_model_history(model_history):
     """
     Plot Accuracy and Loss curves given the model_history
@@ -86,52 +89,44 @@ model.add(Dense(1024, activation='relu'))
 model.add(Dropout(0.5))
 model.add(Dense(7, activation='softmax'))
 
-# If you want to train the same model or try other models, go for this
-if mode == "train":
-    model.compile(loss='categorical_crossentropy',optimizer=Adam(lr=0.0001, decay=1e-6),metrics=['accuracy'])
-    model_info = model.fit_generator(
-            train_generator,
-            steps_per_epoch=num_train // batch_size,
-            epochs=num_epoch,
-            validation_data=validation_generator,
-            validation_steps=num_val // batch_size)
-    plot_model_history(model_info)
-    model.save_weights('model.h5')
-
 # emotions will be displayed on your face from the webcam feed
-elif mode == "display":
-    model.load_weights('model.h5')
-    # prevents openCL usage and unnecessary logging messages
-    cv2.ocl.setUseOpenCL(False)
+model.load_weights('model.h5')
+# prevents openCL usage and unnecessary logging messages
+cv2.ocl.setUseOpenCL(False)
 
-    # dictionary which assigns each label an emotion (alphabetical order)
-    emotion_dict = {0: "Angry", 1: "Disgusted", 2: "Fearful", 3: "Happy", 4: "Neutral", 5: "Sad", 6: "Surprised"}
+# dictionary which assigns each label an emotion (alphabetical order)
+emotion_dict = {0: "Angry", 1: "Happy", 2: "Sad"}
 
-    # start the webcam feed
-    cap = cv2.VideoCapture(0,cv2.CAP_DSHOW)
+# start the webcam feed
+# cap = cv2.VideoCapture(0,cv2.CAP_DSHOW)
+cap = cv2.VideoCapture("C:/Users/3izzo/Desktop/Projects/Talathum/WIN_20211021_23_20_21_Pro.mp4")
+sleep(10)
+facecasc = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+# sleep(1)
 
+while True:
+    # Find haar cascade to draw bounding box around face
+    ret, frame = cap.read()
+    if not ret:
+        break
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    faces = facecasc.detectMultiScale(gray,scaleFactor=1.3, minNeighbors=5)
+    for (x, y, w, h) in faces:
+        cv2.rectangle(frame, (x, y-50), (x+w, y+h+10), (255, 0, 0), 2)
+        roi_gray = gray[y:y + h, x:x + w]
+        cropped_img = np.expand_dims(np.expand_dims(cv2.resize(roi_gray, (48, 48)), -1), 0)
+        prediction = model.predict(cropped_img)
+        prediction = prediction[0]
+        prediction = [prediction[0],prediction[3],prediction[4]]
+        maxindex = int(np.argmax(prediction))
+        controller.target_emotion = list(emotion_dict[maxindex].lower())[0]
 
-    while True:
-        # Find haar cascade to draw bounding box around face
-        ret, frame = cap.read()
-        if not ret:
-            break
-        facecasc = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = facecasc.detectMultiScale(gray,scaleFactor=1.3, minNeighbors=5)
-        for (x, y, w, h) in faces:
-            cv2.rectangle(frame, (x, y-50), (x+w, y+h+10), (255, 0, 0), 2)
-            roi_gray = gray[y:y + h, x:x + w]
-            cropped_img = np.expand_dims(np.expand_dims(cv2.resize(roi_gray, (48, 48)), -1), 0)
-            prediction = model.predict(cropped_img)
-            # print(prediction)
-            maxindex = int(np.argmax(prediction))
-            # remove cv2 to meet our need.
-            cv2.putText(frame, emotion_dict[maxindex], (x+20, y-60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+        # remove cv2 to meet our need.
+        cv2.putText(frame, emotion_dict[maxindex], (x+20, y-60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
-        cv2.imshow('Video', cv2.resize(frame,(1600,960),interpolation = cv2.INTER_CUBIC))
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+    cv2.imshow('Video', cv2.resize(frame,(1600,960),interpolation = cv2.INTER_CUBIC))
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
 
-    cap.release()
-    cv2.destroyAllWindows()
+cap.release()
+cv2.destroyAllWindows()
