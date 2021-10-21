@@ -1,1 +1,6 @@
-*.pkl
+/images
+/training-runs
+/datasets
+/out
+/lerp.mp4
+/*.pkl
