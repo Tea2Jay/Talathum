@@ -123,7 +123,8 @@ def renderLoop(latent_walk):
     while True:
         image = latent_walk.generate()
         cv2.cvtColor(image, cv2.COLOR_BGR2RGB, image)
-        cv2.imshow("image", image)
+        resized_image = cv2.resize(image, (512, 512)) 
+        cv2.imshow("image", resized_image)
         cv2.waitKey(2)
 
 
