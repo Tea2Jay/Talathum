@@ -124,7 +124,9 @@ def renderLoop(latent_walk):
         image = latent_walk.generate()
         cv2.cvtColor(image, cv2.COLOR_BGR2RGB, image)
         cv2.imshow("image", image)
-        cv2.waitKey(2)
+        # cv2.waitKey(2)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
 
 if __name__ == "__main__":

@@ -116,11 +116,11 @@ while True:
         roi_gray = gray[y:y + h, x:x + w]
         cropped_img = np.expand_dims(np.expand_dims(cv2.resize(roi_gray, (48, 48)), -1), 0)
         prediction = model.predict(cropped_img)
+        print(prediction)
         prediction = prediction[0]
-        prediction = [prediction[0],prediction[3],prediction[4]]
+        prediction = [prediction[0],prediction[3],prediction[5]]
         maxindex = int(np.argmax(prediction))
         controller.target_emotion = list(emotion_dict[maxindex].lower())[0]
-
         # remove cv2 to meet our need.
         cv2.putText(frame, emotion_dict[maxindex], (x+20, y-60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
@@ -130,3 +130,4 @@ while True:
 
 cap.release()
 cv2.destroyAllWindows()
+exit()
