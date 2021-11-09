@@ -3,7 +3,7 @@ from time import sleep
 import cv2
 import numpy as np
 import pandas as pd
-
+import sys
 import dnnlib
 from visualizer import AsyncRenderer
 from threading import Thread
@@ -12,7 +12,9 @@ from threading import Thread
 class LatentWalk:
     def __init__(self, pkl=None, x=0, y=0, speed=0.25, step_y=100):
         self._async_renderer = AsyncRenderer()
+        self.class_idx = 0
         self.args = dnnlib.EasyDict(pkl=pkl)
+        # exit()
         self.latent = dnnlib.EasyDict(x=x, y=y, speed=speed)
         self.step_y = 1
         self.prevTime = datetime.now()
@@ -30,6 +32,7 @@ class LatentWalk:
         if self.args.pkl is not None:
             self._async_renderer.set_args(**self.args)
             result = self._async_renderer.get_result()
+            # print(result)
             if result is not None and "image" in result:
                 return result.image
 
@@ -52,9 +55,10 @@ class LatentWalk:
         currentWeight = 1 - self.walkPercent
 
         targetWeight = 1 - currentWeight
-
+        self.args.class_idx = self.class_idx
         self.args.w0_seeds.append([targetSeed, targetWeight])
         self.args.w0_seeds.append([currentSeed, currentWeight])
+        # print(self.args)
 
         self.latent.x = (
             self.targetX - self.prevTargetX
@@ -79,10 +83,11 @@ class LatentWalk:
 
 class LatentWalkerController:
     def __init__(self):
-        self.latent_walk = LatentWalk(pkl="network-snapshot-000660.pkl")
-        self.target_emotion = "h"
-        self.emotion_dictionary = {}
-        self.read_emotions("emotion distribution.csv")
+        self.latent_walk = LatentWalk(pkl="network-snapshot-001460.pkl")
+        # self.target_emotion = "h"
+        # self.class_idx = 0
+        # self.emotion_dictionary = {}
+        # self.read_emotions("emotion distribution.csv")
 
         walker_thread = Thread(target=renderLoop, args=(self.latent_walk,))
         walker_thread.start()
@@ -90,14 +95,14 @@ class LatentWalkerController:
         looper_thread = Thread(target=self.doLoop, args=())
         looper_thread.start()
 
-    def read_emotions(self, path):
-        csv = pd.read_csv(path)
-        for row in csv.iloc:
-            if not row[1] in self.emotion_dictionary: 
-                self.emotion_dictionary[row[1]] = []
+    # def read_emotions(self, path):
+    #     csv = pd.read_csv(path)
+    #     for row in csv.iloc:
+    #         if not row[1] in self.emotion_dictionary:
+    #             self.emotion_dictionary[row[1]] = []
 
-            self.emotion_dictionary[row[1]].append(row[0])
-        print(self.emotion_dictionary)
+    #         self.emotion_dictionary[row[1]].append(row[0])
+        # print(self.emotion_dictionary)
 
     def doLoop(self):
         while True:
@@ -105,36 +110,43 @@ class LatentWalkerController:
             # userInY = int(input())
             sleep(0.01)
             if self.latent_walk.walkPercent >= 1:
-                self.latent_walk.prevTargetX = 0
+                self.latent_walk.prevTargetX = self.latent_walk.targetX
+                # self.latent_walk.prevTargetX = 0
                 self.latent_walk.prevTargetY = self.latent_walk.targetY
 
-                self.latent_walk.targetX = 0
+                # self.latent_walk.targetX = 0
+                self.latent_walk.targetX = self.get_image()
                 self.latent_walk.targetY = self.get_image()
 
                 self.latent_walk.walkPercent = 0
-                print(self.latent_walk.targetX, self.latent_walk.targetY)
+                # print(self.latent_walk.targetX, self.latent_walk.targetY)
 
     def get_image(self):
-        emotionList = self.emotion_dictionary[self.target_emotion]
-        return emotionList[np.random.randint(0, len(emotionList))]
+        return np.random.randint(69696969)
 
 
 def renderLoop(latent_walk):
     while True:
         image = latent_walk.generate()
         cv2.cvtColor(image, cv2.COLOR_BGR2RGB, image)
-        resized_image = cv2.resize(image, (512, 512)) 
+        resized_image = cv2.resize(image, (512, 512))
         cv2.imshow("image", resized_image)
-        cv2.waitKey(2)
+        # cv2.waitKey(2)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            exit()
 
 
 if __name__ == "__main__":
     controller = LatentWalkerController()
     while True:
-        input()
-        controller.target_emotion = 's'
-        input()
-        controller.target_emotion = 'a' 
-        input()
-        controller.target_emotion = 'h'
-    
+        value = input()
+        if value == 'q':
+            exit()
+        print(type(value))
+        controller.latent_walk.class_idx = int(value)
+        # input()
+        # controller.target_emotion = 's'
+        # input()
+        # controller.target_emotion = 'a'
+        # input()
+        # controller.target_emotion = 'h'

@@ -242,6 +242,7 @@ class Renderer:
         fft_beta        = 8,
         input_transform = None,
         untransform     = False,
+        class_idx       = 0,
     ):
         # Dig up network details.
         G = self.get_network(pkl, 'G_ema')
@@ -265,11 +266,13 @@ class Renderer:
         all_seeds = list(set(all_seeds))
         all_zs = np.zeros([len(all_seeds), G.z_dim], dtype=np.float32)
         all_cs = np.zeros([len(all_seeds), G.c_dim], dtype=np.float32)
+        all_cs[:,class_idx]=1
+        # all_cs = [i[:,0] for i in all_cs]
         for idx, seed in enumerate(all_seeds):
             rnd = np.random.RandomState(seed)
             all_zs[idx] = rnd.randn(G.z_dim)
-            if G.c_dim > 0:
-                all_cs[idx, rnd.randint(G.c_dim)] = 1
+            # if G.c_dim > 0:
+                # all_cs[idx, rnd.randint(G.c_dim)] = 1
 
         # Run mapping network.
         w_avg = G.mapping.w_avg

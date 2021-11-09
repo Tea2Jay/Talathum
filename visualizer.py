@@ -227,6 +227,8 @@ class AsyncRenderer:
     def _set_args_sync(self, **args):
         if self._renderer_obj is None:
             self._renderer_obj = renderer.Renderer()
+        # print(args,"lmao")
+        # obad
         self._cur_result = self._renderer_obj.render(**args)
 
     def get_result(self):
@@ -254,6 +256,8 @@ class AsyncRenderer:
             while args_queue.qsize() > 0:
                 args, stamp = args_queue.get()
             if args != cur_args or stamp != cur_stamp:
+                # send class to this function
+                # print(args)
                 result = renderer_obj.render(**args)
                 if 'error' in result:
                     result.error = renderer.CapturedException(result.error)
@@ -288,6 +292,7 @@ def main(
         viz.load_pickle(pkls[0])
     else:
         pretrained = [
+            'C:/Users/Tj/Desktop/projects/Talathum/network-snapshot-001460.pkl',
             'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-r-afhqv2-512x512.pkl',
             'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-r-ffhq-1024x1024.pkl',
             'https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-r-ffhqu-1024x1024.pkl',
