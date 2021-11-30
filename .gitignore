@@ -7,3 +7,6 @@
 /WIN_20211021_23_20_21_Pro.mp4
 *.png
 *.pyc
+emotions/
+__pycache__/
+*.py[cod]
