@@ -10,3 +10,4 @@
 emotions/
 __pycache__/
 *.py[cod]
+/.vscode
