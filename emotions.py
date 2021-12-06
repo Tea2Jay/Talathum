@@ -136,10 +136,12 @@ facecasc = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
 # sleep(20)
 # sleep(1)
 
+points = []
 emotions = []
 while True:
     # Find haar cascade to draw bounding box around face
     ret, frame = cap.read()
+    frame = cv2.flip(frame, 1)
     if not ret:
         break
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -154,9 +156,10 @@ while True:
         prediction = model.predict(cropped_img)
         prediction = prediction[0].tolist()
         emotions.append(prediction)
+        points = []
         if len(emotions) >= 5:
             avg = [0, 0, 0, 0, 0, 0, 0]
-            avg = np.sum(emotions,0).tolist()
+            avg = np.sum(emotions, 0).tolist()
             avg = np.divide(avg, 5).tolist()
             maxindex = int(np.argmax(avg))
             cv2.putText(
@@ -169,16 +172,27 @@ while True:
                 2,
                 cv2.LINE_AA,
             )
-            print(f'{emotions=}')
             emotions.pop(0)
-            print(f'after pop {emotions=}')
+
+        maxCameraD = max(frame.shape)
+        midFaceX = x + w / 2
+        midFaceY = y + h / 2
+        ratioX = frame.shape[1] / (frame.shape[1] - w)
+        ratioY = frame.shape[0] / (frame.shape[0] - h)
+        points.append(
+            [
+                (midFaceX / maxCameraD * 2 - 1) * ratioX,
+                (midFaceY / maxCameraD * 2 - 1) * ratioY,
+            ]
+        )
+        print(f"{points=}")
 
         # prediction = prediction[0]
         # prediction = [prediction[0], prediction[3], prediction[5]]
         # emotions = [emotions[0]+prediction[0], emotions[1] +
         #             prediction[1], emotions[2]+prediction[2]]
 
-    cv2.imshow("Video", cv2.resize(frame, (1600, 960), interpolation=cv2.INTER_CUBIC))
+    cv2.imshow("Video", cv2.resize(frame, (640, 480), interpolation=cv2.INTER_CUBIC))
     if cv2.waitKey(1) & 0xFF == ord("q"):
         break
 
