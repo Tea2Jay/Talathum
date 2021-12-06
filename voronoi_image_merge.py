@@ -1,8 +1,5 @@
 from time import time
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.path as pth
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from scipy.spatial import Voronoi
 import cv2
 
@@ -19,21 +16,16 @@ def clip(arr, min, max):
     return cords
 
 
-def vorarr(images, regions, vertices, width, height, dpi=100, renderDots=False):
+def vorarr(images, regions, vertices, renderDots=False):
 
-    fig = plt.Figure(figsize=(width / dpi, height / dpi), dpi=dpi)
-    canvas = FigureCanvas(fig)
-    ax = fig.add_axes([0, 0, 1, 1])
-    limExtra = 0.1
-    ax.set_xlim(-1 - limExtra, 1 + limExtra)
-    ax.set_ylim(-1 - limExtra, 1 + limExtra)
-
+    res = np.zeros_like(images[0])
     for i, (region, image, point) in enumerate(zip(regions, images, points)):
         polygon = vertices[region]
         # ax.fill(
         #     *zip(*polygon),
         # )
-        clippedPolygon = clip(polygon, -1 - limExtra, 1 + limExtra)
+        clippedPolygon = clip(vertices[region] * 256 + 256, 0, 512)
+        clippedPolygon = np.array(clippedPolygon, dtype=np.int32)
 
         [maxX, maxY] = np.max(clippedPolygon, axis=0)
         [minX, minY] = np.min(clippedPolygon, axis=0)
@@ -46,27 +38,24 @@ def vorarr(images, regions, vertices, width, height, dpi=100, renderDots=False):
 
         maxDelta = deltaX if deltaX > deltaY else deltaY
 
-        path = pth.Path(
-            clippedPolygon,
-        )
-        t = time.time()
-        im = ax.imshow(
-            image,
-            extent=(
-                centerX - maxDelta / 2,
-                centerX + maxDelta / 2,
-                centerY - maxDelta / 2,
-                centerY + maxDelta / 2,
-            ),
-        )
-        print(f"{time.time() - t=}")
-        im.set_clip_path(path, ax.transData)
+        mask = np.zeros(image.shape, dtype=image.dtype)
+        mask = cv2.fillConvexPoly(mask, clippedPolygon, (1, 1, 1))
 
-    if renderDots:
-        ax.plot(points[:, 0], points[:, 1], "ko")
+        maskedImage = np.multiply(image, mask)
 
-    canvas.draw()
-    return np.frombuffer(canvas.tostring_rgb(), dtype="uint8").reshape(height, width, 3)
+        maskOut = 1 - mask
+
+        maskedRes = np.multiply(res, maskOut)
+
+        res = np.add(maskedImage, maskedRes)
+
+        if renderDots:
+            point = point * 256 + 256
+            cv2.circle(
+                res, (int(point[0]), int(point[1])), 5, (120, 90, 255), thickness=3
+            )
+
+    return res
 
 
 def voronoi_finite_polygons_2d(vor, radius=None):
@@ -146,9 +135,7 @@ def points_to_voronoi(images, points, renderDots=False):
 
     regions, vertices = voronoi_finite_polygons_2d(vor)
     # voronoi_finite_polygons_2d function from https://stackoverflow.com/a/20678647/425458
-    arr = vorarr(
-        images, regions, vertices, width=512, height=512, renderDots=renderDots
-    )
+    arr = vorarr(images, regions, vertices, renderDots=renderDots)
 
     return arr
 
