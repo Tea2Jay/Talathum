@@ -10,7 +10,7 @@ import cv2
 import matplotlib.pyplot as plt
 import argparse
 import numpy as np
-from time import sleep
+from time import sleep, time, process_time_ns
 from tensorflow.python.keras.backend import dtype
 
 from tensorflow.python.keras.utils.generic_utils import to_list
@@ -55,8 +55,6 @@ model = getModel()
 # prevents openCL usage and unnecessary logging messages
 cv2.ocl.setUseOpenCL(False)
 
-# dictionary which assigns each label an emotion (alphabetical order)
-# emotion_dict = {0: "Angry", 1: "Happy", 2: "Sad"}
 emotion_dict = {
     0: "Angry",
     1: "Disgusted",
@@ -84,10 +82,58 @@ sampleImages = [
     ]
 ]
 
-prevPoints = []
+
+def get_closest_point_and_img(pointMap, p):
+    closest = pointMap[0]
+    closestDistSqr = 6969
+
+    for [point, image] in pointMap:
+        distSqr = (point[0] - p[0]) ** 2 + (point[1] - p[1]) ** 2
+        if distSqr < closestDistSqr:
+            closestDistSqr = distSqr
+            closest = [point, image]
+    return closest[0], closest[1], closestDistSqr
+
+
+def calculatePointMap(pointMap, points, sampleImages):
+    remainingImages = list.copy(sampleImages)
+    distanceThreshold = 0.4
+
+    newPointMap = []
+
+    pointsToGiveImages = []
+    for p in points:
+        if len(pointMap) == 0:
+            newPointMap.append([p, remainingImages.pop(0)])
+            continue
+
+        closestPoint, image, distSqrd = get_closest_point_and_img(pointMap, p)
+
+        if distSqrd < distanceThreshold ** 2:
+            newPointMap.append([p, image])
+            pointMap.remove([closestPoint, image])
+
+            for i, im in enumerate(remainingImages):
+                if np.array_equal(im, image):
+                    del remainingImages[i]
+                    break
+        else:
+            pointsToGiveImages.append(p)
+
+    for p in pointsToGiveImages:
+        newPointMap.append([p, remainingImages.pop(0)])
+
+    return newPointMap
+
+
+# [[[x,y], image],[[x,y], image],]
+pointMap = []
+
+
 points = []
 emotions = []
 while True:
+    t = time()
     # Find haar cascade to draw bounding box around face
     ret, frame = cap.read()
     frame = cv2.flip(frame, 1)
@@ -95,8 +141,9 @@ while True:
         break
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     faces = facecasc.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
+    print((time() - t))
+
     # print(faces)
-    prevPoints = points
     points = []
 
     for (x, y, w, h) in faces:
@@ -141,15 +188,19 @@ while True:
                 point[i] = -1
 
         points.append(point)
-        # prediction = prediction[0]
-        # prediction = [prediction[0], prediction[3], prediction[5]]
-        # emotions = [emotions[0]+prediction[0], emotions[1] +
-        #             prediction[1], emotions[2]+prediction[2]]
 
-    cv2.imshow("Video", cv2.resize(frame, (640, 480), interpolation=cv2.INTER_CUBIC))
+    # cv2.imshow("Video", cv2.resize(frame, (640, 480), interpolation=cv2.INTER_CUBIC))
     if len(points) > 0:
+        pointMap = calculatePointMap(pointMap, points, sampleImages)
+
+        finalImage = points_to_voronoi(
+            [im for _, im in pointMap],
+            np.array([point for point, _ in pointMap]),
+            renderDots=True,
+        )
         cv2.imshow(
-            "vornoi", points_to_voronoi(sampleImages, np.array(points), renderDots=True)
+            "vornoi",
+            finalImage,
         )
     if cv2.waitKey(1) & 0xFF == ord("q"):
         break
