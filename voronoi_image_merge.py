@@ -1,5 +1,6 @@
 from time import time
 import numpy as np
+from numpy.lib.type_check import imag
 from scipy.spatial import Voronoi
 import cv2
 
@@ -16,7 +17,7 @@ def clip(arr, min, max):
     return cords
 
 
-def vorarr(images, regions, vertices, renderDots=False):
+def vorarr(images, regions, vertices, points, renderDots=False):
 
     res = np.zeros_like(images[0])
     for i, (region, image, point) in enumerate(zip(regions, images, points)):
@@ -124,6 +125,7 @@ import time
 
 
 def points_to_voronoi(images, points, renderDots=False):
+    images = images[: points.shape[0]][:]
     points = np.copy(points)
     points = np.append(points, [[9999, 9999]], axis=0)
     points = np.append(points, [[-9999, 9999]], axis=0)
@@ -135,14 +137,16 @@ def points_to_voronoi(images, points, renderDots=False):
 
     regions, vertices = voronoi_finite_polygons_2d(vor)
     # voronoi_finite_polygons_2d function from https://stackoverflow.com/a/20678647/425458
-    arr = vorarr(images, regions, vertices, renderDots=renderDots)
+
+    # print(f"{regions=} {vertices=} {vertices=} ")
+    arr = vorarr(images, regions, vertices, points, renderDots=renderDots)
 
     return arr
 
 
 if __name__ == "__main__":
     np.random.seed(1234)
-    points = np.random.rand(4, 2)
+    points = np.random.rand(1, 2)
     speeds = np.random.rand(4, 2) - 0.5
     speeds /= 30
     image_paths = [
