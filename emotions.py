@@ -83,16 +83,16 @@ sampleImages = [
 ]
 
 
-def get_closest_point_and_img(pointMap, p):
+def get_closest_point_and_data(pointMap, p):
     closest = pointMap[0]
     closestDistSqr = 6969
 
-    for [point, image] in pointMap:
+    for [point, image, emotions] in pointMap:
         distSqr = (point[0] - p[0]) ** 2 + (point[1] - p[1]) ** 2
         if distSqr < closestDistSqr:
             closestDistSqr = distSqr
-            closest = [point, image]
-    return closest[0], closest[1], closestDistSqr
+            closest = [point, image, emotions]
+    return closest[0], closest[1], closest[2], closestDistSqr
 
 
 def calculatePointMap(pointMap, points, sampleImages):
@@ -104,14 +104,16 @@ def calculatePointMap(pointMap, points, sampleImages):
     pointsToGiveImages = []
     for p in points:
         if len(pointMap) == 0:
-            newPointMap.append([p, remainingImages.pop(0)])
+            newPointMap.append([p, remainingImages.pop(0), []])
             continue
 
-        closestPoint, image, distSqrd = get_closest_point_and_img(pointMap, p)
+        closestPoint, image, emotions, distSqrd = get_closest_point_and_data(
+            pointMap, p
+        )
 
         if distSqrd < distanceThreshold ** 2:
-            newPointMap.append([p, image])
-            pointMap.remove([closestPoint, image])
+            newPointMap.append([p, image, emotions])
+            pointMap.remove([closestPoint, image, emotions])
 
             for i, im in enumerate(remainingImages):
                 if np.array_equal(im, image):
@@ -121,19 +123,18 @@ def calculatePointMap(pointMap, points, sampleImages):
             pointsToGiveImages.append(p)
 
     for p in pointsToGiveImages:
-        newPointMap.append([p, remainingImages.pop(0)])
+        newPointMap.append([p, remainingImages.pop(0), []])
 
     return newPointMap
 
 
-# [[[x,y], image],[[x,y], image],]
+# [[[x,y], image,emotions],[[x,y], image,emotions],]
 pointMap = []
 
 
 points = []
-emotions = []
+
 while True:
-    t = time()
     # Find haar cascade to draw bounding box around face
     ret, frame = cap.read()
     frame = cv2.flip(frame, 1)
@@ -141,36 +142,11 @@ while True:
         break
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     faces = facecasc.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
-    print((time() - t))
 
     # print(faces)
     points = []
 
     for (x, y, w, h) in faces:
-        cv2.rectangle(frame, (x, y - 50), (x + w, y + h + 10), (255, 0, 0), 2)
-        roi_gray = gray[y : y + h, x : x + w]
-        cropped_img = np.expand_dims(
-            np.expand_dims(cv2.resize(roi_gray, (48, 48)), -1), 0
-        )
-        prediction = model.predict(cropped_img)
-        prediction = prediction[0].tolist()
-        emotions.append(prediction)
-        if len(emotions) >= 5:
-            avg = [0, 0, 0, 0, 0, 0, 0]
-            avg = np.sum(emotions, 0).tolist()
-            avg = np.divide(avg, 5).tolist()
-            maxindex = int(np.argmax(avg))
-            cv2.putText(
-                frame,
-                emotion_dict[maxindex],
-                (x + 20, y - 60),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                (255, 255, 255),
-                2,
-                cv2.LINE_AA,
-            )
-            emotions.pop(0)
 
         midFaceX = x + w / 2
         midFaceY = y + h / 2
@@ -187,17 +163,50 @@ while True:
             elif point[i] < -1:
                 point[i] = -1
 
+        point.append(x)
+        point.append(y)
+        point.append(w)
+        point.append(h)
         points.append(point)
 
     # cv2.imshow("Video", cv2.resize(frame, (640, 480), interpolation=cv2.INTER_CUBIC))
     if len(points) > 0:
         pointMap = calculatePointMap(pointMap, points, sampleImages)
 
+        for point, image, emotions in pointMap:
+            print(f"{emotions=}")
+            [x, y, w, h] = point[2:]
+            cv2.rectangle(frame, (x, y - 50), (x + w, y + h + 10), (255, 0, 0), 2)
+            roi_gray = gray[y : y + h, x : x + w]
+            cropped_img = np.expand_dims(
+                np.expand_dims(cv2.resize(roi_gray, (48, 48)), -1), 0
+            )
+            prediction = model.predict(cropped_img)
+            prediction = prediction[0].tolist()
+            emotions.append(prediction)
+            if len(emotions) >= 5:
+                avg = [0, 0, 0, 0, 0, 0, 0]
+                avg = np.sum(emotions, 0).tolist()
+                avg = np.divide(avg, 5).tolist()
+                maxindex = int(np.argmax(avg))
+                cv2.putText(
+                    frame,
+                    emotion_dict[maxindex],
+                    (x + 20, y - 60),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    1,
+                    (255, 255, 255),
+                    2,
+                    cv2.LINE_AA,
+                )
+                emotions.pop(0)
+
         finalImage = points_to_voronoi(
-            [im for _, im in pointMap],
-            np.array([point for point, _ in pointMap]),
+            [im for _, im, _ in pointMap],
+            np.array([point[0:2] for point, _, _ in pointMap]),
             renderDots=True,
         )
+        cv2.imshow("camera", frame)
         cv2.imshow(
             "vornoi",
             finalImage,
