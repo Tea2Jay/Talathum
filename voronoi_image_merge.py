@@ -19,13 +19,15 @@ def clip(arr, min, max):
 
 def vorarr(images, regions, vertices, points, renderDots=False):
 
+    imSize = images[0].shape[0]
+    imSizeHalf = int(imSize / 2)
     res = np.zeros_like(images[0])
     for i, (region, image, point) in enumerate(zip(regions, images, points)):
         polygon = vertices[region]
         # ax.fill(
         #     *zip(*polygon),
         # )
-        clippedPolygon = clip(vertices[region] * 256 + 256, 0, 512)
+        clippedPolygon = clip(vertices[region] * imSizeHalf + imSizeHalf, 0, imSize)
         clippedPolygon = np.array(clippedPolygon, dtype=np.int32)
 
         [maxX, maxY] = np.max(clippedPolygon, axis=0)
@@ -51,7 +53,7 @@ def vorarr(images, regions, vertices, points, renderDots=False):
         res = np.add(maskedImage, maskedRes)
 
         if renderDots:
-            point = point * 256 + 256
+            point = point * imSizeHalf + imSizeHalf
             cv2.circle(
                 res, (int(point[0]), int(point[1])), 5, (120, 90, 255), thickness=3
             )

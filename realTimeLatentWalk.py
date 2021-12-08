@@ -63,46 +63,48 @@ class LatentWalk:
         self.args.w0_seeds.append([targetSeed, targetWeight, self.current_class_idx])
         self.args.w0_seeds.append([currentSeed, currentWeight, self.target_class_idx])
 
+
 class LatentWalkerController:
-    def __init__(self, targetClass):
+    def __init__(self, targetClass, doLoop=False):
         self.id = randint(696969)
         self.latent_walk = LatentWalk(pkl="network-snapshot-001460.pkl")
         self.latent_walk.target_class_idx = targetClass
-        walker_thread = Thread(target=self.renderLoop, args=(self.latent_walk,))
-        walker_thread.start()
+        if doLoop:
+            walker_thread = Thread(target=self.renderLoop, args=())
+            walker_thread.start()
 
         self.targetClass = targetClass
 
-    def get_image(self):
+    def getImageSeed(self):
         return np.random.randint(69696969)
 
-    def renderLoop(self, latent_walk):
+    def getImage(self):
+        image = self.latent_walk.generate()
+
+        if self.latent_walk.walkPercent >= 1:
+            self.latent_walk.prevTargetX = self.latent_walk.targetX
+            self.latent_walk.targetX = self.getImageSeed()
+            self.latent_walk.walkPercent = 0
+            self.latent_walk.current_class_idx = self.latent_walk.target_class_idx
+            self.latent_walk.target_class_idx = self.targetClass
+
+        if image is not None:
+            colorCorrectedImage = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            return colorCorrectedImage
+
+    def renderLoop(self):
         t = time()
         while True:
-            image = latent_walk.generate()
-
-            if self.latent_walk.walkPercent >= 1:
-                self.latent_walk.prevTargetX = self.latent_walk.targetX
-                self.latent_walk.targetX = self.get_image()
-                self.latent_walk.walkPercent = 0
-                self.latent_walk.current_class_idx = self.latent_walk.target_class_idx
-                self.latent_walk.target_class_idx = self.targetClass
-
-            if image is not None:
-                colorCorrectedImage = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                resized_image = cv2.resize(colorCorrectedImage, (512, 512))
-                cv2.imshow("image " + str(self.id), resized_image)
-                dt = time() - t
-                if dt == 0:
-                    dt = 0.001
+            im = self.getImage()
+            if im is not None:
+                cv2.imshow("image " + str(self.id), im)
 
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 exit()
-            t = time()
 
 
 if __name__ == "__main__":
-    controller = LatentWalkerController(0)
+    controller = LatentWalkerController(0, doLoop=True)
     # controller2 = LatentWalkerController()
     # controller3 = LatentWalkerController()
     while True:

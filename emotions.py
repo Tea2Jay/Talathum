@@ -1,4 +1,5 @@
 import os
+from threading import Thread
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.layers import MaxPooling2D
 from tensorflow.keras.optimizers import Adam
@@ -72,15 +73,6 @@ cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 facecasc = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
 # sleep(20)
 # sleep(1)
-sampleImages = [
-    cv2.resize(cv2.imread(path), (512, 512))
-    for path in [
-        "images/1024/3970-00.png",
-        "images/1024/822737-00.png",
-        "images/Emotions/Anger/Seated Nude.jpg",
-        "images/Emotions/Anger/The Family.jpg",
-    ]
-]
 
 
 def get_closest_point_and_data(pointMap, p):
@@ -103,6 +95,8 @@ def calculatePointMap(pointMap, points, sampleImages):
 
     pointsToGiveImages = []
     for p in points:
+        if len(remainingImages) == 0:
+            break
         if len(pointMap) == 0:
             newPointMap.append([p, remainingImages.pop(0), []])
             continue
@@ -116,13 +110,15 @@ def calculatePointMap(pointMap, points, sampleImages):
             pointMap.remove([closestPoint, image, emotions])
 
             for i, im in enumerate(remainingImages):
-                if np.array_equal(im, image):
+                if im == image:
                     del remainingImages[i]
                     break
         else:
             pointsToGiveImages.append(p)
 
     for p in pointsToGiveImages:
+        if len(remainingImages) == 0:
+            break
         newPointMap.append([p, remainingImages.pop(0), []])
 
     return newPointMap
@@ -132,87 +128,125 @@ def calculatePointMap(pointMap, points, sampleImages):
 pointMap = []
 
 
-points = []
-
-while True:
-    # Find haar cascade to draw bounding box around face
-    ret, frame = cap.read()
-    frame = cv2.flip(frame, 1)
-    if not ret:
-        break
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    faces = facecasc.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
-
-    # print(faces)
+def doLoop(dataArr):
+    global pointMap
     points = []
+    t = time()
+    while True:
+        # Find haar cascade to draw bounding box around face
+        ret, frame = cap.read()
+        frame = cv2.flip(frame, 1)
+        if not ret:
+            break
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = facecasc.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
 
-    for (x, y, w, h) in faces:
+        # print(faces)
+        points = []
 
-        midFaceX = x + w / 2
-        midFaceY = y + h / 2
-        ratioX = frame.shape[1] / (frame.shape[1] - w)
-        ratioY = frame.shape[0] / (frame.shape[0] - h)
-        point = [
-            (midFaceX / frame.shape[1] * 2 - 1) * ratioX,
-            (midFaceY / frame.shape[0] * 2 - 1) * ratioY,
-        ]
+        for (x, y, w, h) in faces:
 
-        for i in range(2):
-            if point[i] > 1:
-                point[i] = 1
-            elif point[i] < -1:
-                point[i] = -1
+            midFaceX = x + w / 2
+            midFaceY = y + h / 2
+            ratioX = frame.shape[1] / (frame.shape[1] - w)
+            ratioY = frame.shape[0] / (frame.shape[0] - h)
+            point = [
+                (midFaceX / frame.shape[1] * 2 - 1) * ratioX,
+                (midFaceY / frame.shape[0] * 2 - 1) * ratioY,
+            ]
 
-        point.append(x)
-        point.append(y)
-        point.append(w)
-        point.append(h)
-        points.append(point)
+            for i in range(2):
+                if point[i] > 1:
+                    point[i] = 1
+                elif point[i] < -1:
+                    point[i] = -1
 
-    # cv2.imshow("Video", cv2.resize(frame, (640, 480), interpolation=cv2.INTER_CUBIC))
-    if len(points) > 0:
-        pointMap = calculatePointMap(pointMap, points, sampleImages)
+            point.append(x)
+            point.append(y)
+            point.append(w)
+            point.append(h)
+            points.append(point)
 
-        for point, image, emotions in pointMap:
-            [x, y, w, h] = point[2:]
-            cv2.rectangle(frame, (x, y - 50), (x + w, y + h + 10), (255, 0, 0), 2)
-            roi_gray = gray[y : y + h, x : x + w]
-            cropped_img = np.expand_dims(
-                np.expand_dims(cv2.resize(roi_gray, (48, 48)), -1), 0
-            )
-            prediction = model.predict(cropped_img)
-            prediction = prediction[0].tolist()
-            emotions.append(prediction)
-            if len(emotions) >= 5:
-                avg = [0, 0, 0, 0, 0, 0, 0]
-                avg = np.sum(emotions, 0).tolist()
-                avg = np.divide(avg, 5).tolist()
-                maxindex = int(np.argmax(avg))
-                cv2.putText(
-                    frame,
-                    emotion_dict[maxindex],
-                    (x + 20, y - 60),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    (255, 255, 255),
-                    2,
-                    cv2.LINE_AA,
+        # cv2.imshow("Video", cv2.resize(frame, (640, 480), interpolation=cv2.INTER_CUBIC))
+        if len(points) > 0:
+            pointMap = calculatePointMap(pointMap, points, dataArr)
+
+            for point, image, emotions in pointMap:
+                [x, y, w, h] = point[2:]
+                cv2.rectangle(frame, (x, y - 50), (x + w, y + h + 10), (255, 0, 0), 2)
+                roi_gray = gray[y : y + h, x : x + w]
+                cropped_img = np.expand_dims(
+                    np.expand_dims(cv2.resize(roi_gray, (48, 48)), -1), 0
                 )
-                emotions.pop(0)
+                prediction = model.predict(cropped_img)
+                prediction = prediction[0].tolist()
+                emotions.append(prediction)
+                if len(emotions) >= 5:
+                    avg = [0, 0, 0, 0, 0, 0, 0]
+                    avg = np.sum(emotions, 0).tolist()
+                    avg = np.divide(avg, 5).tolist()
+                    maxindex = int(np.argmax(avg))
+                    cv2.putText(
+                        frame,
+                        emotion_dict[maxindex],
+                        (x + 20, y - 60),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        1,
+                        (255, 255, 255),
+                        2,
+                        cv2.LINE_AA,
+                    )
+                    emotions.pop(0)
 
-        finalImage = points_to_voronoi(
-            [im for _, im, _ in pointMap],
-            np.array([point[0:2] for point, _, _ in pointMap]),
-            renderDots=True,
+        dt = time() - t
+        if dt == 0:
+            dt = 0.0001
+        # print(f"camera FPS {1/dt}")
+        cv2.putText(
+            frame,
+            str(int(1 / dt)),
+            (20, 20),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (255, 255, 255),
+            2,
         )
-        cv2.imshow(
-            "vornoi",
-            finalImage,
-        )
-    cv2.imshow("camera", frame)
-    if cv2.waitKey(1) & 0xFF == ord("q"):
-        break
 
-cap.release()
-cv2.destroyAllWindows()
-exit()
+        cv2.imshow("camera", frame)
+        t = time()
+        if cv2.waitKey(1) & 0xFF == ord("q"):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+    exit()
+
+
+if __name__ == "__main__":
+    sampleImages = [
+        cv2.resize(cv2.imread(path), (512, 512))
+        for path in [
+            "images/1024/3970-00.png",
+            "images/1024/822737-00.png",
+            "images/Emotions/Anger/Seated Nude.jpg",
+            "images/Emotions/Anger/The Family.jpg",
+        ]
+    ]
+
+    camera_thread = Thread(target=doLoop, args=([sampleImages]))
+    camera_thread.start()
+    t = time()
+    while True:
+        print(1 / (time() - t + 0.000001))
+        t = time()
+        cv2.waitKey(1)
+        if len(pointMap) > 0:
+            finalImage = points_to_voronoi(
+                [im for _, im, _ in pointMap],
+                np.array([point[0:2] for point, _, _ in pointMap]),
+                renderDots=True,
+            )
+            cv2.imshow(
+                "vornoi",
+                finalImage,
+            )
