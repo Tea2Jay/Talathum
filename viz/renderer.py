@@ -8,6 +8,7 @@
 
 import sys
 import copy
+from time import sleep
 import traceback
 import numpy as np
 import torch
@@ -116,10 +117,11 @@ def _apply_affine_transformation(x, mat, up=4, **filter_kwargs):
 
 #----------------------------------------------------------------------------
 
+_pkl_data      = dict()
 class Renderer:
     def __init__(self):
         self._device        = torch.device('cuda')
-        self._pkl_data      = dict()    # {pkl: dict | CapturedException, ...}
+            # {pkl: dict | CapturedException, ...}
         self._networks      = dict()    # {cache_key: torch.nn.Module, ...}
         self._pinned_bufs   = dict()    # {(shape, dtype): torch.Tensor, ...}
         self._cmaps         = dict()    # {name: torch.Tensor, ...}
@@ -150,8 +152,9 @@ class Renderer:
         return res
 
     def get_network(self, pkl, key, **tweak_kwargs):
-        data = self._pkl_data.get(pkl, None)
+        data = _pkl_data.get(pkl, None)
         if data is None:
+            _pkl_data[pkl] = "loading"
             print(f'Loading "{pkl}"... ', end='', flush=True)
             try:
                 with dnnlib.util.open_url(pkl, verbose=False) as f:
@@ -160,8 +163,13 @@ class Renderer:
             except:
                 data = CapturedException()
                 print('Failed!')
-            self._pkl_data[pkl] = data
+            _pkl_data[pkl] = data
             self._ignore_timing()
+        
+        while data == "loading":
+            sleep(1)
+            data = _pkl_data.get(pkl, None)
+
         if isinstance(data, CapturedException):
             raise data
 

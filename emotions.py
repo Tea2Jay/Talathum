@@ -174,7 +174,6 @@ while True:
         pointMap = calculatePointMap(pointMap, points, sampleImages)
 
         for point, image, emotions in pointMap:
-            print(f"{emotions=}")
             [x, y, w, h] = point[2:]
             cv2.rectangle(frame, (x, y - 50), (x + w, y + h + 10), (255, 0, 0), 2)
             roi_gray = gray[y : y + h, x : x + w]
@@ -206,11 +205,11 @@ while True:
             np.array([point[0:2] for point, _, _ in pointMap]),
             renderDots=True,
         )
-        cv2.imshow("camera", frame)
         cv2.imshow(
             "vornoi",
             finalImage,
         )
+    cv2.imshow("camera", frame)
     if cv2.waitKey(1) & 0xFF == ord("q"):
         break
 
