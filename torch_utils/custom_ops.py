@@ -12,6 +12,7 @@ import importlib
 import os
 import re
 import shutil
+from time import sleep
 import uuid
 
 import torch
@@ -66,8 +67,11 @@ def get_plugin(module_name, sources, headers=None, source_dir=None, **build_kwar
 
     # Already cached?
     if module_name in _cached_plugins:
+        while  _cached_plugins[module_name] == "loading":
+            sleep(1)
         return _cached_plugins[module_name]
 
+    _cached_plugins[module_name] = "loading"
     # Print status.
     if verbosity == 'full':
         print(f'Setting up PyTorch plugin "{module_name}"...')

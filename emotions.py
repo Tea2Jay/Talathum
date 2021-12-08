@@ -21,11 +21,11 @@ from voronoi_image_merge import points_to_voronoi
 # controller = LatentWalkerController()
 
 
-# Hide GPU from visible devices
-tf.config.set_visible_devices([], "GPU")
-
-
 def getModel():
+
+    # Hide GPU from visible devices
+    tf.config.set_visible_devices([], "GPU")
+
     model = Sequential()
 
     model.add(
@@ -51,26 +51,6 @@ def getModel():
     return model
 
 
-# Create the model
-model = getModel()
-# prevents openCL usage and unnecessary logging messages
-cv2.ocl.setUseOpenCL(False)
-
-emotion_dict = {
-    0: "Angry",
-    1: "Disgusted",
-    2: "Fearful",
-    3: "Happy",
-    4: "Neutral",
-    5: "Sad",
-    6: "Surprised",
-}
-
-
-# start the webcam feed
-cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-# cap = cv2.VideoCapture("C:/Users/3izzo/Desktop/Projects/Talathum/WIN_20211021_23_20_21_Pro.mp4")
-facecasc = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
 # sleep(20)
 # sleep(1)
 
@@ -84,18 +64,20 @@ def get_closest_point_and_data(pointMap, p):
         if distSqr < closestDistSqr:
             closestDistSqr = distSqr
             closest = [point, image, emotions]
+
     return closest[0], closest[1], closest[2], closestDistSqr
 
 
 def calculatePointMap(pointMap, points, sampleImages):
     remainingImages = list.copy(sampleImages)
-    distanceThreshold = 0.4
+    distanceThreshold = 0.2
 
     newPointMap = []
 
     pointsToGiveImages = []
     for p in points:
         if len(remainingImages) == 0:
+            print("too many nafarat")
             break
         if len(pointMap) == 0:
             newPointMap.append([p, remainingImages.pop(0), []])
@@ -109,15 +91,21 @@ def calculatePointMap(pointMap, points, sampleImages):
             newPointMap.append([p, image, emotions])
             pointMap.remove([closestPoint, image, emotions])
 
+            deleted = False
             for i, im in enumerate(remainingImages):
-                if im == image:
+                if im.id == image.id:
+                    deleted = True
                     del remainingImages[i]
                     break
+            if not deleted:
+                print("why you do dis")
         else:
+            print(f"{p=} {closestPoint=} {distSqrd=}")
             pointsToGiveImages.append(p)
 
     for p in pointsToGiveImages:
         if len(remainingImages) == 0:
+            print("too many nafarat 2")
             break
         newPointMap.append([p, remainingImages.pop(0), []])
 
@@ -129,9 +117,41 @@ pointMap = []
 
 
 def doLoop(dataArr):
+    # global pointMap
+    # pointMap = [
+    #     [[-0.5, -0.5], dataArr[0], []],
+    #     [[0.5, 0.5], dataArr[1], []],
+    #     [[-0.25, 0.25], dataArr[2], []],
+    # ]
+
+    # while True:
+    #     sleep(0.1)
+    #     for i in range(3):
+    #         pointMap[i][0][0] += np.random.random() * 0.2 - 0.1
+    #         pointMap[i][0][1] += np.random.random() * 0.2 - 0.1
+    # Create the model
+    model = getModel()
+    # prevents openCL usage and unnecessary logging messages
+    cv2.ocl.setUseOpenCL(False)
+
+    emotion_dict = {
+        0: "Angry",
+        1: "Disgusted",
+        2: "Fearful",
+        3: "Happy",
+        4: "Neutral",
+        5: "Sad",
+        6: "Surprised",
+    }
+
+    # start the webcam feed
+    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    # cap = cv2.VideoCapture("C:/Users/3izzo/Desktop/Projects/Talathum/WIN_20211021_23_20_21_Pro.mp4")
+    facecasc = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
     global pointMap
     points = []
     t = time()
+    print("starting camera loop")
     while True:
         # Find haar cascade to draw bounding box around face
         ret, frame = cap.read()
@@ -143,7 +163,8 @@ def doLoop(dataArr):
 
         # print(faces)
         points = []
-
+        if len(faces) < 3:
+            print(faces)
         for (x, y, w, h) in faces:
 
             midFaceX = x + w / 2

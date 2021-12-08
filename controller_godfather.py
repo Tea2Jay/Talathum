@@ -1,5 +1,5 @@
 from threading import Thread
-from time import sleep, time
+from time import sleep, time, time_ns
 import cv2
 from realTimeLatentWalk import LatentWalkerController
 import emotions
@@ -23,8 +23,6 @@ if __name__ == "__main__":
     while True:
         cv2.waitKey(1)
         if len(emotions.pointMap) > 0:
-            if len(emotions.pointMap) < 2:
-                print(f"{emotions.pointMap=}")
             localLatentWalkers = [lw for _, lw, _ in emotions.pointMap]
             images = [lw.getImage() for lw in localLatentWalkers]
 
@@ -36,13 +34,13 @@ if __name__ == "__main__":
                     if images[i] is None:
                         hasNone = True
                         images[i] = localLatentWalkers[i].getImage()
+            images = [cv2.resize(im, (512, 512)) for im in images]
             finalImage = points_to_voronoi(
                 images,
                 np.array([point[0:2] for point, _, _ in emotions.pointMap]),
                 renderDots=True,
             )
 
-            finalImage = cv2.resize(finalImage, (512, 512))
             dt = time() - t
             if dt == 0:
                 dt = 0.0001

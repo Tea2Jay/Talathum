@@ -1,10 +1,7 @@
-from datetime import datetime
 from time import sleep, time
 import cv2
 import numpy as np
 from numpy.random.mtrand import randint
-import pandas as pd
-import sys
 import dnnlib
 from visualizer import AsyncRenderer
 from threading import Thread
@@ -90,6 +87,7 @@ class LatentWalkerController:
 
         if image is not None:
             colorCorrectedImage = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            # return np.full((256, 256, 3), self.id % 255, dtype=np.uint8)
             return colorCorrectedImage
 
     def renderLoop(self):

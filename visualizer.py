@@ -6,6 +6,7 @@
 # distribution of this software and related documentation without an express
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 
+from threading import Thread
 import click
 import os
 
@@ -279,7 +280,6 @@ class AsyncRenderer:
                 if stamp == self._cur_stamp:
                     self._cur_result = result
                     return self._cur_result
-                    
 
     def clear_result(self):
         assert not self._closed
