@@ -1,5 +1,7 @@
+import multiprocessing
 from threading import Thread
 from time import sleep, time, time_ns
+from typing import List
 import cv2
 from realTimeLatentWalk import LatentWalkerController
 import emotions
@@ -15,16 +17,28 @@ if __name__ == "__main__":
         LatentWalkerController(0, doLoop=False),
         LatentWalkerController(0, doLoop=False),
     ]
+    latentIdxs = list(range(len(latentWalkers)))
 
-    camera_thread = Thread(target=emotions.doLoop, args=(latentWalkers,))
+    pointMapQueue = multiprocessing.Queue()
+    try:
+        multiprocessing.set_start_method("spawn")
+    except RuntimeError:
+        pass
+    camera_thread = multiprocessing.Process(
+        target=emotions.doLoop, args=(latentIdxs, pointMapQueue), daemon=True
+    )
     camera_thread.start()
+
+    pm = []
 
     t = time()
     while True:
         cv2.waitKey(1)
-        pm = list.copy(emotions.pointMap)
+        while pointMapQueue.qsize() > 1:
+            pm = pointMapQueue.get()
+
         if len(pm) > 0:
-            localLatentWalkers = [lw for _, lw, _ in pm]
+            localLatentWalkers = [latentWalkers[lwid] for _, lwid, _ in pm]
             images = [lw.getImage() for lw in localLatentWalkers]
 
             hasNone = True

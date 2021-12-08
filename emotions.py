@@ -70,6 +70,7 @@ def get_closest_point_and_data(pointMap, p):
 
 def calculatePointMap(pointMap, points, sampleImages):
     remainingImages = list.copy(sampleImages)
+    pointMap = list.copy(pointMap)
     distanceThreshold = 0.2
 
     newPointMap = []
@@ -93,7 +94,7 @@ def calculatePointMap(pointMap, points, sampleImages):
 
             deleted = False
             for i, im in enumerate(remainingImages):
-                if im.id == image.id:
+                if im == image:
                     deleted = True
                     del remainingImages[i]
                     break
@@ -113,10 +114,9 @@ def calculatePointMap(pointMap, points, sampleImages):
 
 
 # [[[x,y], image,emotions],[[x,y], image,emotions],]
-pointMap = []
 
 
-def doLoop(dataArr):
+def doLoop(dataArr, pointMapQueue):
     # global pointMap
     # pointMap = [
     #     [[-0.5, -0.5], dataArr[0], []],
@@ -148,7 +148,7 @@ def doLoop(dataArr):
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     # cap = cv2.VideoCapture("C:/Users/3izzo/Desktop/Projects/Talathum/WIN_20211021_23_20_21_Pro.mp4")
     facecasc = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
-    global pointMap
+    pointMap = []
     points = []
     t = time()
     print("starting camera loop")
@@ -191,7 +191,7 @@ def doLoop(dataArr):
         # cv2.imshow("Video", cv2.resize(frame, (640, 480), interpolation=cv2.INTER_CUBIC))
         if len(points) > 0:
             pointMap = calculatePointMap(pointMap, points, dataArr)
-
+            pointMapQueue.put(pointMap)
             for point, image, emotions in pointMap:
                 [x, y, w, h] = point[2:]
                 cv2.rectangle(frame, (x, y - 50), (x + w, y + h + 10), (255, 0, 0), 2)
