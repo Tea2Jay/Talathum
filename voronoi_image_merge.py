@@ -148,7 +148,7 @@ def points_to_voronoi(images, points, renderDots=False):
 
 if __name__ == "__main__":
     np.random.seed(1234)
-    points = np.random.rand(1, 2)
+    points = np.random.rand(4, 2)
     speeds = np.random.rand(4, 2) - 0.5
     speeds /= 30
     image_paths = [

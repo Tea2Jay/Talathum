@@ -22,8 +22,9 @@ if __name__ == "__main__":
     t = time()
     while True:
         cv2.waitKey(1)
-        if len(emotions.pointMap) > 0:
-            localLatentWalkers = [lw for _, lw, _ in emotions.pointMap]
+        pm = list.copy(emotions.pointMap)
+        if len(pm) > 0:
+            localLatentWalkers = [lw for _, lw, _ in pm]
             images = [lw.getImage() for lw in localLatentWalkers]
 
             hasNone = True
@@ -34,13 +35,12 @@ if __name__ == "__main__":
                     if images[i] is None:
                         hasNone = True
                         images[i] = localLatentWalkers[i].getImage()
-            images = [cv2.resize(im, (512, 512)) for im in images]
+            images = [cv2.resize(im, (1024, 1024)) for im in images]
             finalImage = points_to_voronoi(
                 images,
-                np.array([point[0:2] for point, _, _ in emotions.pointMap]),
+                np.array([point[0:2] for point, _, _ in pm]),
                 renderDots=True,
             )
-
             dt = time() - t
             if dt == 0:
                 dt = 0.0001
