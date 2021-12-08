@@ -13,21 +13,20 @@ derpImage = cv2.imread("images/Emotions/fear/4 Avril.jpg")
 
 
 class LatentWalk:
-    def __init__(self, pkl=None, x=0, y=0, speed=0.25, step_y=100):
+    def __init__(self, pkl=None, speed=0.25):
         t = time()
         self._async_renderer = AsyncRenderer()
         self._async_renderer._is_async = True
-        self.class_idx = 0
+        self.current_class_idx = 0
+        self.target_class_idx = 1
         self.args = dnnlib.EasyDict(pkl=pkl)
+        self.speed = speed
         # exit()
-        self.latent = dnnlib.EasyDict(x=x, y=y, speed=speed)
         self.step_y = 1
-        self.prevTime = datetime.now()
+        self.prevTime = time()
         self.targetX = 1
-        self.targetY = 1
 
         self.prevTargetX = 0
-        self.prevTargetY = 0
 
         self.walkPercent = 0.0
 
@@ -44,41 +43,28 @@ class LatentWalk:
             if result is not None and "image" in result:
                 return result.image
 
-        self.prevTime = datetime.now()
-
         return None
 
     def walk(self):
 
         self.args.w0_seeds = []
 
-        targetSeed = (int(self.targetX) + int(self.targetY) * self.step_y) & (
-            (1 << 32) - 1
-        )
+        targetSeed = (round(self.targetX)) & ((1 << 32) - 1)
 
-        currentSeed = (
-            round(self.prevTargetX) + round(self.prevTargetY) * self.step_y
-        ) & ((1 << 32) - 1)
+        currentSeed = (round(self.prevTargetX)) & ((1 << 32) - 1)
 
         currentWeight = 1 - self.walkPercent
 
         targetWeight = 1 - currentWeight
-        self.args.class_idx = self.class_idx
-        self.args.w0_seeds.append([targetSeed, targetWeight])
-        self.args.w0_seeds.append([currentSeed, currentWeight])
-        # print(self.args)
-
-        self.latent.x = (
-            self.targetX - self.prevTargetX
-        ) * self.walkPercent + self.prevTargetX
-        self.latent.y = (
-            self.targetY - self.prevTargetY
-        ) * self.walkPercent + self.prevTargetY
+        self.args.w0_seeds.append([targetSeed, targetWeight, self.current_class_idx])
+        self.args.w0_seeds.append([currentSeed, currentWeight, self.target_class_idx])
+        print(self.args.w0_seeds)
 
         if self.walkPercent < 1:
-            self.walkPercent += 0.01
+            self.walkPercent +=( time() - self.prevTime )* self.speed
         else:
             self.walkPercent = 1
+        self.prevTime = time()
 
         # for ofs_x, ofs_y in [[0, 0], [self.target, 0], [0, self.target], [self.target, self.target]]:
         #     seed_x = np.floor(self.latent.x) + ofs_x
@@ -90,39 +76,40 @@ class LatentWalk:
 
 
 class LatentWalkerController:
-    def __init__(self):
+    def __init__(self, targetClass):
         self.id = randint(696969)
         self.latent_walk = LatentWalk(pkl="network-snapshot-001460.pkl")
-
+        self.latent_walk.target_class_idx = targetClass
         walker_thread = Thread(target=self.renderLoop, args=(self.latent_walk,))
         walker_thread.start()
 
         looper_thread = Thread(target=self.doLoop, args=())
         looper_thread.start()
+        self.targetClass = targetClass
 
     def doLoop(self):
         while True:
             # userInX = int(input())
             # userInY = int(input())
-            sleep(0.01)
+            sleep(0.016)
             if self.latent_walk.walkPercent >= 1:
                 self.latent_walk.prevTargetX = self.latent_walk.targetX
                 # self.latent_walk.prevTargetX = 0
-                self.latent_walk.prevTargetY = self.latent_walk.targetY
 
                 # self.latent_walk.targetX = 0
                 self.latent_walk.targetX = self.get_image()
-                self.latent_walk.targetY = self.get_image()
 
                 self.latent_walk.walkPercent = 0
+                self.latent_walk.current_class_idx = self.latent_walk.target_class_idx
+                self.latent_walk.target_class_idx = self.targetClass
                 # print(self.latent_walk.targetX, self.latent_walk.targetY)
 
     def get_image(self):
         return np.random.randint(69696969)
 
     def renderLoop(self, latent_walk):
+        t = time()
         while True:
-            t = time()
             image = latent_walk.generate()
             if image is not None:
                 colorCorrectedImage = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -132,23 +119,23 @@ class LatentWalkerController:
                 dt = time() - t
                 if dt == 0:
                     dt = 0.001
-                print(f"fps for {self.id=} {1/(dt)}")
-                t = time()
+                # print(f"fps for {self.id=} {1/(dt)}")
 
-            if cv2.waitKey(1) & 0xFF == ord("q"):
+            if cv2.waitKey(17) & 0xFF == ord("q"):
                 exit()
+            t = time()
 
 
 if __name__ == "__main__":
-    controller = LatentWalkerController()
-    controller2 = LatentWalkerController()
-    controller3 = LatentWalkerController()
+    controller = LatentWalkerController(0)
+    # controller2 = LatentWalkerController()
+    # controller3 = LatentWalkerController()
     while True:
         value = input()
         if value == "q":
             exit()
         print(type(value))
-        controller.latent_walk.class_idx = int(value)
+        controller.targetClass = int(value)
 
         # value = input()
         # if value == "q":
