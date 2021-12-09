@@ -217,6 +217,8 @@ def doLoop(dataArr, pointMapQueue):
                     #     cv2.LINE_AA,
                     # )
                     emotions[0].pop(0)
+        else:
+            pointMapQueue.put([[[0, 0], 0, [[], 0]]])
 
         dt = time() - t
         if dt == 0:

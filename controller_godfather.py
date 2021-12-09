@@ -15,7 +15,7 @@ if __name__ == "__main__":
         1:0,
         2:4,
         3:1,
-        4:4,#TODO neutral
+        4:2,#TODO neutral
         5:2,
         6:0
     }
