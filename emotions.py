@@ -81,7 +81,7 @@ def calculatePointMap(pointMap, points, sampleImages):
             print("too many nafarat")
             break
         if len(pointMap) == 0:
-            newPointMap.append([p, remainingImages.pop(0), []])
+            newPointMap.append([p, remainingImages.pop(0), [[], 0]])
             continue
 
         closestPoint, image, emotions, distSqrd = get_closest_point_and_data(
@@ -108,7 +108,7 @@ def calculatePointMap(pointMap, points, sampleImages):
         if len(remainingImages) == 0:
             print("too many nafarat 2")
             break
-        newPointMap.append([p, remainingImages.pop(0), []])
+        newPointMap.append([p, remainingImages.pop(0), [[], 0]])
 
     return newPointMap
 
@@ -163,8 +163,6 @@ def doLoop(dataArr, pointMapQueue):
 
         # print(faces)
         points = []
-        if len(faces) < 3:
-            print(faces)
         for (x, y, w, h) in faces:
 
             midFaceX = x + w / 2
@@ -201,12 +199,13 @@ def doLoop(dataArr, pointMapQueue):
                 )
                 prediction = model.predict(cropped_img)
                 prediction = prediction[0].tolist()
-                emotions.append(prediction)
-                if len(emotions) >= 5:
+                emotions[0].append(prediction)
+                if len(emotions[0]) >= 5:
                     avg = [0, 0, 0, 0, 0, 0, 0]
-                    avg = np.sum(emotions, 0).tolist()
+                    avg = np.sum(emotions[0], 0).tolist()
                     avg = np.divide(avg, 5).tolist()
                     maxindex = int(np.argmax(avg))
+                    emotions[1] = maxindex
                     # cv2.putText(
                     #     frame,
                     #     emotion_dict[maxindex],
@@ -217,7 +216,7 @@ def doLoop(dataArr, pointMapQueue):
                     #     2,
                     #     cv2.LINE_AA,
                     # )
-                    emotions.pop(0)
+                    emotions[0].pop(0)
 
         dt = time() - t
         if dt == 0:

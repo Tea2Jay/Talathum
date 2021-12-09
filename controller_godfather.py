@@ -10,6 +10,16 @@ import numpy as np
 
 if __name__ == "__main__":
 
+    emotionsMap = {
+        0:3,
+        1:0,
+        2:4,
+        3:1,
+        4:4,#TODO neutral
+        5:2,
+        6:0
+    }
+
     initController = LatentWalkerController(0, doLoop=False)
 
     latentWalkers = [
@@ -39,6 +49,9 @@ if __name__ == "__main__":
 
         if len(pm) > 0:
             localLatentWalkers = [latentWalkers[lwid] for _, lwid, _ in pm]
+
+            for _, lwid, emotionsData in pm:
+                latentWalkers[lwid].targetClass = emotionsMap[emotionsData[1]]
             images = [lw.getImage() for lw in localLatentWalkers]
 
             hasNone = True
