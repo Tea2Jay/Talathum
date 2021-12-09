@@ -192,7 +192,7 @@ def doLoop(dataArr, pointMapQueue):
             pointMapQueue.put(pointMap)
             for point, image, emotions in pointMap:
                 [x, y, w, h] = point[2:]
-                # cv2.rectangle(frame, (x, y - 50), (x + w, y + h + 10), (255, 0, 0), 2)
+                cv2.rectangle(frame, (x, y - 50), (x + w, y + h + 10), (255, 0, 0), 2)
                 roi_gray = gray[y : y + h, x : x + w]
                 cropped_img = np.expand_dims(
                     np.expand_dims(cv2.resize(roi_gray, (48, 48)), -1), 0
@@ -206,19 +206,19 @@ def doLoop(dataArr, pointMapQueue):
                     avg = np.divide(avg, 5).tolist()
                     maxindex = int(np.argmax(avg))
                     emotions[1] = maxindex
-                    # cv2.putText(
-                    #     frame,
-                    #     emotion_dict[maxindex],
-                    #     (x + 20, y - 60),
-                    #     cv2.FONT_HERSHEY_SIMPLEX,
-                    #     1,
-                    #     (255, 255, 255),
-                    #     2,
-                    #     cv2.LINE_AA,
-                    # )
+                    cv2.putText(
+                        frame,
+                        emotion_dict[maxindex],
+                        (x + 20, y - 60),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        1,
+                        (255, 255, 255),
+                        2,
+                        cv2.LINE_AA,
+                    )
                     emotions[0].pop(0)
         else:
-            pointMapQueue.put([[[0, 0], 0, [[], 0]]])
+            pointMapQueue.put([[[0, 0, 0, 0, 0, 0], 0, [[], 0]]])
 
         dt = time() - t
         if dt == 0:
@@ -234,7 +234,7 @@ def doLoop(dataArr, pointMapQueue):
             2,
         )
 
-        # cv2.imshow("camera", frame)
+        cv2.imshow("camera", frame)
         t = time()
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break

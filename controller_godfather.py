@@ -10,15 +10,7 @@ import numpy as np
 
 if __name__ == "__main__":
 
-    emotionsMap = {
-        0:3,
-        1:0,
-        2:4,
-        3:1,
-        4:2,#TODO neutral
-        5:2,
-        6:0
-    }
+    emotionsMap = {0: 3, 1: 0, 2: 4, 3: 1, 4: 2, 5: 2, 6: 0}  # TODO neutral
 
     initController = LatentWalkerController(0, doLoop=False)
 
@@ -64,7 +56,16 @@ if __name__ == "__main__":
                 if hasNone:
                     sleep(0.001)
 
-            images = [cv2.resize(im, (512, 512)) for im in images]
+            scales = [
+                (point[4] / 256) / 0.3 if point[4] > 0 else 1 for point, _, _ in pm
+            ]
+            scales = [2 if s > 2 else s for s in scales]
+            scales = [int(256 / s / 2) if s > 1 else 128 for s in scales]
+
+            images = [
+                cv2.resize(im[128 - s : 127 + s, 128 - s : 127 + s], (512, 512))
+                for im, s in zip(images, scales)
+            ]
             finalImage = points_to_voronoi(
                 images,
                 np.array([point[0:2] for point, _, _ in pm]),
