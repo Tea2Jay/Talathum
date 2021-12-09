@@ -30,28 +30,22 @@ def vorarr(images, regions, vertices, points, renderDots=False):
         clippedPolygon = clip(vertices[region] * imSizeHalf + imSizeHalf, 0, imSize)
         clippedPolygon = np.array(clippedPolygon, dtype=np.int32)
 
-        [maxX, maxY] = np.max(clippedPolygon, axis=0)
-        [minX, minY] = np.min(clippedPolygon, axis=0)
-
-        deltaX = maxX - minX
-        deltaY = maxY - minY
-
-        centerX = minX + deltaX / 2
-        centerY = minY + deltaY / 2
-
-        maxDelta = deltaX if deltaX > deltaY else deltaY
-
         mask = np.zeros(image.shape, dtype=image.dtype)
         mask = cv2.fillConvexPoly(mask, clippedPolygon, (1, 1, 1))
 
-        maskedImage = np.multiply(image, mask)
-
+        # t = time.time()
+        maskedImage = np.einsum("ij...,ij...->ij...", image, mask, optimize="greedy")
+        # print(f"1st multi took {time.time() - t}s")
         maskOut = 1 - mask
 
-        maskedRes = np.multiply(res, maskOut)
+        # t = time.time()
+        maskedRes = np.einsum("ij...,ij...->ij...", res, maskOut, optimize="greedy")
+        # print(f"2nd multi took {time.time() - t}s")
 
-        res = np.add(maskedImage, maskedRes)
-
+        t = time.time()
+        res = maskedRes + maskedImage
+        # print(f"add took {time.time() - t}s")
+        # print(res.shape)
         if renderDots:
             point = point * imSizeHalf + imSizeHalf
             cv2.circle(
@@ -157,7 +151,7 @@ if __name__ == "__main__":
         "images/Emotions/Anger/Seated Nude.jpg",
         "images/Emotions/Anger/The Family.jpg",
     ]
-    images = [cv2.resize(cv2.imread(path), (512, 512)) for path in image_paths]
+    images = [cv2.resize(cv2.imread(path), (1024, 1024)) for path in image_paths]
     np.set_printoptions(suppress=True)
 
     prevTime = time.time()

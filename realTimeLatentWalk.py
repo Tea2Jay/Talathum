@@ -36,7 +36,6 @@ class LatentWalk:
         if self.args.pkl is not None:
             self._async_renderer.set_args(**self.args)
             result = self._async_renderer.get_result()
-            # print(result)
             if result is not None and "image" in result:
                 return result.image
 

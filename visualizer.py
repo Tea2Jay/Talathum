@@ -280,6 +280,7 @@ class AsyncRenderer:
                 if stamp == self._cur_stamp:
                     self._cur_result = result
                     return self._cur_result
+        return self._cur_result
 
     def clear_result(self):
         assert not self._closed

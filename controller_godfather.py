@@ -44,16 +44,18 @@ if __name__ == "__main__":
             hasNone = True
             while hasNone:
                 hasNone = False
-                sleep(0.001)
                 for i in range(len(images)):
                     if images[i] is None:
                         hasNone = True
                         images[i] = localLatentWalkers[i].getImage()
-            images = [cv2.resize(im, (1024, 1024)) for im in images]
+                if hasNone:
+                    sleep(0.001)
+
+            images = [cv2.resize(im, (512, 512)) for im in images]
             finalImage = points_to_voronoi(
                 images,
                 np.array([point[0:2] for point, _, _ in pm]),
-                renderDots=True,
+                renderDots=False,
             )
             dt = time() - t
             if dt == 0:
