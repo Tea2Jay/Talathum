@@ -8,6 +8,25 @@ import emotions
 from voronoi_image_merge import points_to_voronoi
 import numpy as np
 
+
+def lerp(point1, point2, factor):
+    return [(p2 + ((p1 - p2) * factor)) for p1, p2 in zip(point1, point2)]
+
+
+def smoothPoints(target, current):
+    lerpFactor = 0.1
+
+    newPM = list.copy(target)
+
+    for i, [point, lwid, _] in enumerate(newPM):
+        for point2, lwid2, _ in current:
+            if lwid == lwid2:
+                newPM[i][0] = lerp(point, point2, lerpFactor)
+                print(f"{point=} {point2=} {newPM[i][0]=}")
+                break
+    return newPM
+
+
 if __name__ == "__main__":
 
     emotionsMap = {0: 3, 1: 0, 2: 4, 3: 1, 4: 2, 5: 2, 6: 0}  # TODO neutral
@@ -31,15 +50,17 @@ if __name__ == "__main__":
     )
     camera_thread.start()
 
+    targetPM = []
     pm = []
 
     t = time()
     while True:
         cv2.waitKey(1)
         while pointMapQueue.qsize() > 1:
-            pm = pointMapQueue.get()
+            targetPM = pointMapQueue.get()
 
-        if len(pm) > 0:
+        if len(targetPM) > 0:
+            pm = smoothPoints(targetPM, pm)
             localLatentWalkers = [latentWalkers[lwid] for _, lwid, _ in pm]
 
             for _, lwid, emotionsData in pm:
