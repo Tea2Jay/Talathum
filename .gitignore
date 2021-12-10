@@ -10,3 +10,8 @@
 emotions/
 __pycache__/
 *.py[cod]
+*.pkl
+/models/
+*.mp4
+*.jpg
+__pycache__/realTimeLatentWalk.cpython-39.pyc
