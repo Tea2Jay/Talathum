@@ -22,7 +22,6 @@ def smoothPoints(target, current):
         for point2, lwid2, _ in current:
             if lwid == lwid2:
                 newPM[i][0] = lerp(point, point2, lerpFactor)
-                print(f"{point=} {point2=} {newPM[i][0]=}")
                 break
     return newPM
 
@@ -78,7 +77,7 @@ if __name__ == "__main__":
                     sleep(0.001)
 
             scales = [
-                (point[4] / 256) / 0.3 if point[4] > 0 else 1 for point, _, _ in pm
+                (point[4] / 256) / 0.5 if point[4] > 0 else 1 for point, _, _ in pm
             ]
             scales = [2 if s > 2 else s for s in scales]
             scales = [int(256 / s / 2) if s > 1 else 128 for s in scales]

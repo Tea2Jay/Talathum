@@ -56,8 +56,8 @@ class LatentWalk:
         currentWeight = 1 - self.walkPercent
 
         targetWeight = 1 - currentWeight
-        self.args.w0_seeds.append([targetSeed, targetWeight, self.current_class_idx])
-        self.args.w0_seeds.append([currentSeed, currentWeight, self.target_class_idx])
+        self.args.w0_seeds.append([targetSeed, targetWeight, self.target_class_idx])
+        self.args.w0_seeds.append([currentSeed, currentWeight, self.current_class_idx])
 
 
 class LatentWalkerController:
