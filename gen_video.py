@@ -59,9 +59,15 @@ def gen_interp_video(G, mp4: str, seeds, shuffle_seed=None, w_frames=60*4, kind=
     if shuffle_seed is not None:
         rng = np.random.RandomState(seed=shuffle_seed)
         rng.shuffle(all_seeds)
+    # label = torch.zeros([1, G.c_dim], device=device)
+    cs = torch.from_numpy(np.stack([np.random.RandomState(seed).randn(G.c_dim) for seed in all_seeds])).to(device)
+    # print(f'{np.stack([np.random.RandomState(seed).randn(G.z_dim) for seed in all_seeds]).size=}')l
+
 
     zs = torch.from_numpy(np.stack([np.random.RandomState(seed).randn(G.z_dim) for seed in all_seeds])).to(device)
-    ws = G.mapping(z=zs, c=None, truncation_psi=psi)
+    # print(f'{zs[0]}')
+
+    ws = G.mapping(z=zs, c=cs, truncation_psi=psi)
     _ = G.synthesis(ws[:1]) # warm up
     ws = ws.reshape(grid_h, grid_w, num_keyframes, *ws.shape[1:])
 
@@ -169,7 +175,6 @@ def generate_images(
     device = torch.device('cuda')
     with dnnlib.util.open_url(network_pkl) as f:
         G = legacy.load_network_pkl(f)['G_ema'].to(device) # type: ignore
-
     gen_interp_video(G=G, mp4=output, bitrate='12M', grid_dims=grid, num_keyframes=num_keyframes, w_frames=w_frames, seeds=seeds, shuffle_seed=shuffle_seed, psi=truncation_psi)
 
 #----------------------------------------------------------------------------

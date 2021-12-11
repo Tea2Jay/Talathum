@@ -34,7 +34,6 @@ class CapturedException(Exception):
         assert isinstance(msg, str)
         super().__init__(msg)
 
-
 # ----------------------------------------------------------------------------
 
 
@@ -42,7 +41,6 @@ class CaptureSuccess(Exception):
     def __init__(self, out):
         super().__init__()
         self.out = out
-
 
 # ----------------------------------------------------------------------------
 
@@ -94,7 +92,6 @@ def _construct_affine_bandlimit_filter(
     f = f / f.sum([0, 2], keepdim=True) / (up ** 2)
     f = f.reshape(amax * 2 * up, amax * 2 * up)[:-1, :-1]
     return f
-
 
 # ----------------------------------------------------------------------------
 
@@ -168,7 +165,8 @@ class Renderer:
             res.error = str(res.error)
         if self._is_timing:
             self._end_event.synchronize()
-            res.render_time = self._start_event.elapsed_time(self._end_event) * 1e-3
+            res.render_time = self._start_event.elapsed_time(
+                self._end_event) * 1e-3
             self._is_timing = False
         return res
 
@@ -195,7 +193,8 @@ class Renderer:
             raise data
 
         orig_net = data[key]
-        cache_key = (orig_net, self._device, tuple(sorted(tweak_kwargs.items())))
+        cache_key = (orig_net, self._device, tuple(
+            sorted(tweak_kwargs.items())))
         net = self._networks.get(cache_key, None)
         if net is None:
             try:
@@ -305,12 +304,14 @@ class Renderer:
             all_cs[i][_class] = 1
 
         # all_cs = [i[:,0] for i in all_cs]
+        # print(f'{all_seeds=} {stylemix_seed=}')
         for idx, seed in enumerate(all_seeds):
             rnd = np.random.RandomState(seed)
             all_zs[idx] = rnd.randn(G.z_dim)
             # if G.c_dim > 0:
             # all_cs[idx, rnd.randint(G.c_dim)] = 1
 
+     
         # Run mapping network.
         w_avg = G.mapping.w_avg
         all_zs = self.to_device(torch.from_numpy(all_zs))
@@ -336,7 +337,8 @@ class Renderer:
         w += w_avg
 
         # Run synthesis network.
-        synthesis_kwargs = dnnlib.EasyDict(noise_mode=noise_mode, force_fp32=force_fp32)
+        synthesis_kwargs = dnnlib.EasyDict(
+            noise_mode=noise_mode, force_fp32=force_fp32)
         torch.manual_seed(random_seed)
         out, layers = self.run_synthesis_net(
             G.synthesis, w, capture_layer=layer_name, **synthesis_kwargs
@@ -381,7 +383,11 @@ class Renderer:
         if img_normalize:
             img = img / img.norm(float("inf"), dim=[1, 2], keepdim=True).clip(1e-8, 1e8)
         img = img * (10 ** (img_scale_db / 20))
-        img = (img * 127.5 + 128).clamp(0, 255).to(torch.uint8).permute(1, 2, 0)
+        img = (img * 127.5 + 128).clamp(0,
+                                        255).to(torch.uint8).permute(1, 2, 0)
+                                        
+        # I guess here to upscale the image for the desired resolution
+        # print(f'{img.size()=}')
         res.image = img
 
         # FFT.
@@ -440,7 +446,8 @@ class Renderer:
                 if name == capture_layer:
                     raise CaptureSuccess(out)
 
-        hooks = [module.register_forward_hook(module_hook) for module in net.modules()]
+        hooks = [module.register_forward_hook(
+            module_hook) for module in net.modules()]
         try:
             out = net(*args, **kwargs)
         except CaptureSuccess as e:
@@ -448,6 +455,5 @@ class Renderer:
         for hook in hooks:
             hook.remove()
         return out, layers
-
 
 # ----------------------------------------------------------------------------

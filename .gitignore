@@ -13,3 +13,8 @@ __pycache__/
 /.vscode
 /models/
 outputs/*
+*.pkl
+/models/
+*.mp4
+*.jpg
+__pycache__/realTimeLatentWalk.cpython-39.pyc
