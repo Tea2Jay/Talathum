@@ -63,7 +63,7 @@ class LatentWalk:
 class LatentWalkerController:
     def __init__(self, targetClass, doLoop=False):
         self.id = randint(696969)
-        self.latent_walk = LatentWalk(pkl="network-snapshot-001460.pkl")
+        self.latent_walk = LatentWalk(pkl="cond_gan_network-snapshot-002600.pkl")
         self.latent_walk.target_class_idx = targetClass
         if doLoop:
             walker_thread = Thread(target=self.renderLoop, args=())

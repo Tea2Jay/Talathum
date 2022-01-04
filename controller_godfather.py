@@ -28,6 +28,9 @@ def smoothPoints(target, current):
 
 if __name__ == "__main__":
 
+    cv2.namedWindow("vornoi", cv2.WND_PROP_FULLSCREEN)
+    cv2.setWindowProperty("vornoi", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+
     emotionsMap = {0: 3, 1: 0, 2: 4, 3: 1, 4: 2, 5: 2, 6: 0}  # TODO neutral
 
     initController = LatentWalkerController(0, doLoop=False)
@@ -95,15 +98,15 @@ if __name__ == "__main__":
             if dt == 0:
                 dt = 0.0001
             # print(f"camera FPS {1/dt}")
-            cv2.putText(
-                finalImage,
-                str(int(1 / dt)),
-                (20, 20),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                (255, 255, 255),
-                2,
-            )
+            # cv2.putText(
+            #     finalImage,
+            #     str(int(1 / dt)),
+            #     (20, 20),
+            #     cv2.FONT_HERSHEY_SIMPLEX,
+            #     1,
+            #     (255, 255, 255),
+            #     2,
+            # )
 
             cv2.imshow(
                 "vornoi",

@@ -297,7 +297,7 @@ class Renderer:
             G.synthesis.input.transform.copy_(torch.from_numpy(m))
 
         # Generate random latents.
-        all_seeds = [seed for seed, _weight, _class in w0_seeds] + [stylemix_seed]
+        all_seeds = [seed for seed, _weight, _class in w0_seeds]
         all_seeds = list(set(all_seeds))
         all_zs = np.zeros([len(all_seeds), G.z_dim], dtype=np.float32)
         all_cs = np.zeros([len(all_seeds), G.c_dim], dtype=np.float32)
