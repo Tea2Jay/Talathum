@@ -22,29 +22,15 @@ def vorarr(images, regions, vertices, points, renderDots=False):
     imSizeHalf = int(imSize / 2)
     res = np.zeros_like(images[0])
     for i, (region, image, point) in enumerate(zip(regions, images, points)):
-        polygon = vertices[region]
-        # ax.fill(
-        #     *zip(*polygon),
-        # )
+
         clippedPolygon = clip(vertices[region] * imSizeHalf + imSizeHalf, 0, imSize)
         clippedPolygon = np.array(clippedPolygon, dtype=np.int32)
 
-        mask = np.zeros(image.shape, dtype=image.dtype)
-        mask = cv2.fillConvexPoly(mask, clippedPolygon, (1, 1, 1))
+        mask = np.zeros([image.shape[0], image.shape[1], 1], dtype=image.dtype)
+        mask = cv2.fillConvexPoly(mask, clippedPolygon, 1)
 
-        # t = time()
-        maskedImage = np.einsum("ij...,ij...->ij...", image, mask, optimize="greedy")
-        # print(f"1st multi took {time() - t}s")
-        maskOut = 1 - mask
+        cv2.add(image, res, res, mask=mask)
 
-        # t = time()
-        maskedRes = np.einsum("ij...,ij...->ij...", res, maskOut, optimize="greedy")
-        # print(f"2nd multi took {time() - t}s")
-
-        t = time()
-        res = maskedRes + maskedImage
-        # print(f"add took {time() - t}s")
-        # print(res.shape)
         if renderDots:
             point = point * imSizeHalf + imSizeHalf
             cv2.circle(
@@ -127,11 +113,8 @@ def points_to_voronoi(images, points, renderDots=False):
     # compute Voronoi tesselation
     vor = Voronoi(points)
     regions, vertices = voronoi_finite_polygons_2d(vor)
-    # voronoi_finite_polygons_2d function from https://stackoverflow.com/a/20678647/425458
 
-    # print(f"{regions=} {vertices=} {vertices=} ")
     arr = vorarr(images, regions, vertices, points, renderDots=renderDots)
-
     return arr
 
 
