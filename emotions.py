@@ -98,7 +98,6 @@ def calculatePointMap(
             new_point.emotion_label = closest_point.emotion_label
             new_point.emotions_array = closest_point.emotions_array
             new_point.point = point
-            print(f" 123 {point.x=} {point.y=} {point.w=} {point.h=}")
             newPointMap.append(new_point)
             pointMap.remove(closest_point)
 
@@ -131,8 +130,6 @@ def calculatePointMap(
 def doLoop(dataArr, pointMapQueue):
 
     model = getModel()
-    # prevents openCL usage and unnecessary logging messages
-    cv2.ocl.setUseOpenCL(False)
 
     emotion_dict = {
         0: "Angry",
@@ -170,7 +167,6 @@ def doLoop(dataArr, pointMapQueue):
             for point_datum in pointMap:
                 p = point_datum.point
                 roi_gray = gray[p.y : p.y + p.h, p.x : p.x + p.w]
-                print(f"{p.x=} {p.y=} {p.w=} {p.h=}")
                 cropped_img = np.expand_dims(
                     np.expand_dims(cv2.resize(roi_gray, (48, 48)), -1), 0
                 )
