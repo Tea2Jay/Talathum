@@ -1,3 +1,6 @@
+from time import time
+
+
 class Point:
     def __init__(self) -> None:
         self.normalized_x: float = 0
@@ -37,8 +40,19 @@ class Point:
         p.h = self.h * other
         return p
 
+    def clip_normalized(self):
+        if self.normalized_x > 1:
+            self.normalized_x = 1
+        if self.normalized_x < -1:
+            self.normalized_x = -1
+
+        if self.normalized_y > 1:
+            self.normalized_y = 1
+        if self.normalized_y < -1:
+            self.normalized_y = -1
+
     def __str__(self) -> str:
-        return f"nx={self.normalized_x}, ny={self.normalized_y}, x={self.x}, y={self.y}, w={self.w}, h={self.h}"
+        return f"nx={self.normalized_x:.2f}, ny={self.normalized_y:.2f}, x={self.x:.0f}, y={self.y:.0f}, w={self.w:.2f}, h={self.h:.2f}"
 
     __repr__ = __str__
 
@@ -49,3 +63,11 @@ class PointDatum:
         self.datum = 0
         self.emotions_array = []
         self.emotion_label = 0
+        self.time = time()
+
+    def copyFrom(self, pd):
+        self.point = pd.point
+        self.datum = pd.datum
+        self.emotions_array = pd.emotions_array
+        self.emotion_label = pd.emotion_label
+        self.time = pd.time

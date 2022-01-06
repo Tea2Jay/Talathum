@@ -2,7 +2,7 @@ import multiprocessing
 from multiprocessing.queues import Queue
 from threading import Thread
 from time import sleep, time, time_ns
-from typing import List
+from typing import List, Optional
 import cv2
 from realTimeLatentWalk import LatentWalkerController
 import emotions
@@ -11,25 +11,40 @@ import numpy as np
 from models import PointDatum, Point
 
 
-def smooth(p1: Point, p2: Point, factor) -> Point:
-    delta = p2 - p1
-    deltaFactored = delta * factor
-    res = p1 + deltaFactored
+def smooth(prev: Optional[PointDatum], target: PointDatum) -> Point:
+    if prev is None:
+        return target.point
+    t = time()
+    deltaTime = target.time - prev.time
+    currentTime = t - target.time
+    progress = currentTime / deltaTime
+    progress -= 1
+
+    if progress < 0:
+        progress = 1
+    if progress > 1:
+        progress = 1
+    delta = target.point - prev.point
+    res = target.point + delta * progress
+
+    res.clip_normalized()
     return res
 
 
-def smoothPoints(target: list[PointDatum], current: list[PointDatum]):
-    lerpFactor = 0.9
-
+def smoothPoints(prev: list[PointDatum], target: list[PointDatum]):
     newPM: list[PointDatum] = list.copy(target)
 
     for i, point_datum in enumerate(newPM):
-        for point_datum2 in current:
+        prev_point_datum = None
+
+        for point_datum2 in prev:
             if point_datum.datum == point_datum2.datum:
-                newPM[i].point = smooth(
-                    point_datum.point, point_datum2.point, lerpFactor
-                )
+                prev_point_datum = point_datum2
                 break
+        pd = PointDatum()
+        pd.copyFrom(newPM[i])
+        pd.point = smooth(prev_point_datum, point_datum)
+        newPM[i] = pd
     return newPM
 
 
@@ -59,17 +74,21 @@ if __name__ == "__main__":
     )
     camera_thread.start()
 
+    prevPM: list[PointDatum] = []
     targetPM: list[PointDatum] = []
     pm: list[PointDatum] = []
 
     t = time()
     while True:
         cv2.waitKey(1)
+        if pointMapQueue.qsize() > 1:
+            prevPM = targetPM
+
         while pointMapQueue.qsize() > 1:
             targetPM = pointMapQueue.get()
 
         if len(targetPM) > 0:
-            pm = smoothPoints(targetPM, pm)
+            pm = smoothPoints(prevPM, targetPM)
             localLatentWalkers = [
                 latentWalkers[point_datum.datum] for point_datum in pm
             ]

@@ -220,8 +220,7 @@ def calculate_points_from_faces(frame, faces) -> list[Point]:
         point.normalized_x = (midFaceX / frame.shape[1] * 2 - 1) * ratioX
         point.normalized_y = (midFaceY / frame.shape[0] * 2 - 1) * ratioY
 
-        point.normalized_x = max(min(point.normalized_x, 1), -1)
-        point.normalized_y = max(min(point.normalized_y, 1), -1)
+        point.clip_normalized()
 
         point.x = x
         point.y = y
