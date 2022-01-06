@@ -197,7 +197,7 @@ def doLoop(dataArr, pointMapQueue):
             2,
         )
 
-        cv2.imshow("camera", frame)
+        # cv2.imshow("camera", frame)
         t = time()
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break

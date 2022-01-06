@@ -6,9 +6,20 @@ import cv2
 from shapely.geometry import Polygon
 
 
-def clip(arr, min, max):
-    p1 = Polygon(arr)
-    p2 = Polygon([(min, min), (min, max), (max, max), (max, min)])
+def adjust_polygon(arr, x, y):
+
+    x2 = x / 2
+    y2 = y / 2
+    # scale poly
+    arr_scaled = np.copy(arr)
+    for i, a in enumerate(arr_scaled):
+        arr_scaled[i][0] *= x2
+        arr_scaled[i][0] += x2
+        arr_scaled[i][1] *= y2
+        arr_scaled[i][1] += y2
+
+    p1 = Polygon(arr_scaled)
+    p2 = Polygon([(0, 0), (x, 0), (x, y), (0, y)])
 
     inter1 = p1.intersection(p2)
     cords = list(inter1.exterior.coords)
@@ -16,23 +27,82 @@ def clip(arr, min, max):
     return cords
 
 
-def vorarr(images, regions, vertices, points, renderDots=False):
+def center_around_point(image, output_x, output_y, point):
+    norm_x = (point[0] + 1) / 2
+    norm_y = (point[1] + 1) / 2
 
-    imSize = images[0].shape[0]
-    imSizeHalf = int(imSize / 2)
-    res = np.zeros_like(images[0])
+    center_x_in_pixels = int(norm_x * output_x)
+    center_y_in_pixels = int(norm_y * output_y)
+
+    start_x = center_x_in_pixels - np.floor(image.shape[1] / 2)
+    start_y = center_y_in_pixels - np.floor(image.shape[0] / 2)
+
+    end_x = center_x_in_pixels + np.ceil(image.shape[1] / 2)
+    end_y = center_y_in_pixels + np.ceil(image.shape[0] / 2)
+
+    crop_start_x = 0
+    crop_start_y = 0
+
+    crop_end_x = image.shape[1]
+    crop_end_y = image.shape[0]
+
+    if start_x < 0:
+        crop_start_x = int(-start_x)
+        start_x = 0
+    if start_y < 0:
+        crop_start_y = int(-start_y)
+        start_y = 0
+
+    if end_x > output_x:
+        crop_end_x -= int(end_x - output_x)
+        end_x = output_x
+    if end_y > output_y:
+        crop_end_y -= int(end_y - output_y)
+        end_y = output_y
+
+    # print(f"{image.shape=} {image.dtype=} ")
+    # print(f"{crop_start_x=} {crop_end_x=}, {crop_start_y=} {crop_end_y=}")
+    cropped_image = image[crop_start_y:crop_end_y, crop_start_x:crop_end_x]
+
+    # print(f"{cropped_image.shape=} {cropped_image.dtype=} ")
+    # print(
+    #     f"{int(start_y)=} {int(output_y - end_y)=}, {int(start_x)=} {int(output_x - end_x)=}"
+    # )
+
+    padded_image = cv2.copyMakeBorder(
+        cropped_image,
+        int(start_y),
+        int(output_y - end_y),
+        int(start_x),
+        int(output_x - end_x),
+        cv2.BORDER_REFLECT,
+    )
+    # print(f"{padded_image.shape=} {padded_image.dtype=} ")
+
+    # cv2.imshow("padded_image", padded_image)
+    # cv2.waitKey(0)
+    return padded_image
+
+
+def merge_images(
+    images, regions, vertices, points, output_image_size=(1024, 1024), renderDots=False
+):
+
+    y, x = output_image_size
+    res = np.zeros((y, x, 3), dtype=images[0].dtype)
     for i, (region, image, point) in enumerate(zip(regions, images, points)):
-
-        clippedPolygon = clip(vertices[region] * imSizeHalf + imSizeHalf, 0, imSize)
+        clippedPolygon = adjust_polygon(vertices[region], x, y)
         clippedPolygon = np.array(clippedPolygon, dtype=np.int32)
 
+        image = center_around_point(image, x, y, point)
         mask = np.zeros([image.shape[0], image.shape[1], 1], dtype=image.dtype)
         mask = cv2.fillConvexPoly(mask, clippedPolygon, 1)
 
         cv2.add(image, res, res, mask=mask)
 
         if renderDots:
-            point = point * imSizeHalf + imSizeHalf
+            point[0] = point[0] * (x / 2) + (x / 2)
+            point[1] = point[1] * (y / 2) + (y / 2)
             cv2.circle(
                 res, (int(point[0]), int(point[1])), 5, (120, 90, 255), thickness=3
             )
@@ -102,7 +172,7 @@ def voronoi_finite_polygons_2d(vor, radius=None):
     return new_regions, np.asarray(new_vertices)
 
 
-def points_to_voronoi(images, points, renderDots=False):
+def points_to_voronoi(images, points, output_image_size=(1024, 1024), renderDots=False):
     images = images[: points.shape[0]][:]
     points = np.copy(points)
     points = np.append(points, [[9999, 9999]], axis=0)
@@ -114,7 +184,14 @@ def points_to_voronoi(images, points, renderDots=False):
     vor = Voronoi(points)
     regions, vertices = voronoi_finite_polygons_2d(vor)
 
-    arr = vorarr(images, regions, vertices, points, renderDots=renderDots)
+    arr = merge_images(
+        images,
+        regions,
+        vertices,
+        points,
+        output_image_size=output_image_size,
+        renderDots=renderDots,
+    )
     return arr
 
 
@@ -122,7 +199,7 @@ if __name__ == "__main__":
     np.random.seed(1234)
     points = np.random.rand(4, 2)
     speeds = np.random.rand(4, 2) - 0.5
-    speeds /= 30
+    speeds /= 100
     image_paths = [
         "images/1024/3970-00.png",
         "images/1024/822737-00.png",
@@ -138,7 +215,9 @@ if __name__ == "__main__":
         print(1 / (timeD if timeD > 0 else 0.001))
         prevTime = time()
 
-        arr = points_to_voronoi(images, points, renderDots=True)
+        arr = points_to_voronoi(
+            images, points, output_image_size=(720, 1280), renderDots=True
+        )
         # plot the numpy array
         cv2.imshow("", arr)
         if cv2.waitKey(1) != -1:

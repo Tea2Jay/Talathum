@@ -1,5 +1,6 @@
 import multiprocessing
 from multiprocessing.queues import Queue
+from sys import maxsize
 from threading import Thread
 from time import sleep, time, time_ns
 from typing import List, Optional
@@ -64,8 +65,8 @@ def smoothPoints(
 
 if __name__ == "__main__":
 
-    # cv2.namedWindow("vornoi", cv2.WND_PROP_FULLSCREEN)
-    # cv2.setWindowProperty("vornoi", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    cv2.namedWindow("vornoi", cv2.WND_PROP_FULLSCREEN)
+    cv2.setWindowProperty("vornoi", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
     emotionsMap = {0: 3, 1: 0, 2: 4, 3: 1, 4: 2, 5: 2, 6: 0}  # TODO neutral
 
@@ -92,7 +93,6 @@ if __name__ == "__main__":
     targetPM: list[PointDatum] = []
     pm: list[PointDatum] = []
 
-    t = time()
     while True:
         cv2.waitKey(1)
         if pointMapQueue.qsize() > 1:
@@ -128,38 +128,43 @@ if __name__ == "__main__":
                 for point_datum in pm
             ]
             scales = [2 if s > 2 else s for s in scales]
-            scales = [int(256 / s / 2) if s > 1 else 128 for s in scales]
 
-            images = [
-                cv2.resize(im[128 - s : 127 + s, 128 - s : 127 + s], (1024, 1024))
-                for im, s in zip(images, scales)
-            ]
+            x, y, w, h = cv2.getWindowImageRect("vornoi")
+
+            w = int(w / 2)
+            h = int(h / 2)
+            minSize = int(max(min(w, h) / 1.5, 16))
+            maxsize = int(max(max(w, h) / 1.5, 16))
+            delta = maxsize - minSize
+
+            scaledImages: list = []
+            for (im, s) in zip(images, scales):
+                if s < 1:
+                    s = 1
+                size = int(minSize + delta * (s - 1))
+                scaledImages.append(
+                    cv2.resize(
+                        im,
+                        (
+                            size,
+                            size,
+                        ),
+                    )
+                )
+
             finalImage = points_to_voronoi(
-                images,
+                scaledImages,
                 np.array(
                     [
                         [point_datum.point.normalized_x, point_datum.point.normalized_y]
                         for point_datum in pm
                     ]
                 ),
+                output_image_size=(h, w),
                 renderDots=False,
             )
-            dt = time() - t
-            if dt == 0:
-                dt = 0.0001
-            # print(f"camera FPS {1/dt}")
-            # cv2.putText(
-            #     finalImage,
-            #     str(int(1 / dt)),
-            #     (20, 20),
-            #     cv2.FONT_HERSHEY_SIMPLEX,
-            #     1,
-            #     (255, 255, 255),
-            #     2,
-            # )
 
             cv2.imshow(
                 "vornoi",
                 finalImage,
             )
-            t = time()
