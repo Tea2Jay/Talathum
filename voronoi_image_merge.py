@@ -1,6 +1,5 @@
 from time import time
 import numpy as np
-from numpy.lib.type_check import imag
 from scipy.spatial import Voronoi
 import cv2
 
@@ -23,29 +22,15 @@ def vorarr(images, regions, vertices, points, renderDots=False):
     imSizeHalf = int(imSize / 2)
     res = np.zeros_like(images[0])
     for i, (region, image, point) in enumerate(zip(regions, images, points)):
-        polygon = vertices[region]
-        # ax.fill(
-        #     *zip(*polygon),
-        # )
+
         clippedPolygon = clip(vertices[region] * imSizeHalf + imSizeHalf, 0, imSize)
         clippedPolygon = np.array(clippedPolygon, dtype=np.int32)
 
-        mask = np.zeros(image.shape, dtype=image.dtype)
-        mask = cv2.fillConvexPoly(mask, clippedPolygon, (1, 1, 1))
+        mask = np.zeros([image.shape[0], image.shape[1], 1], dtype=image.dtype)
+        mask = cv2.fillConvexPoly(mask, clippedPolygon, 1)
 
-        # t = time.time()
-        maskedImage = np.einsum("ij...,ij...->ij...", image, mask, optimize="greedy")
-        # print(f"1st multi took {time.time() - t}s")
-        maskOut = 1 - mask
+        cv2.add(image, res, res, mask=mask)
 
-        # t = time.time()
-        maskedRes = np.einsum("ij...,ij...->ij...", res, maskOut, optimize="greedy")
-        # print(f"2nd multi took {time.time() - t}s")
-
-        t = time.time()
-        res = maskedRes + maskedImage
-        # print(f"add took {time.time() - t}s")
-        # print(res.shape)
         if renderDots:
             point = point * imSizeHalf + imSizeHalf
             cv2.circle(
@@ -117,9 +102,6 @@ def voronoi_finite_polygons_2d(vor, radius=None):
     return new_regions, np.asarray(new_vertices)
 
 
-import time
-
-
 def points_to_voronoi(images, points, renderDots=False):
     images = images[: points.shape[0]][:]
     points = np.copy(points)
@@ -130,13 +112,9 @@ def points_to_voronoi(images, points, renderDots=False):
 
     # compute Voronoi tesselation
     vor = Voronoi(points)
-
     regions, vertices = voronoi_finite_polygons_2d(vor)
-    # voronoi_finite_polygons_2d function from https://stackoverflow.com/a/20678647/425458
 
-    # print(f"{regions=} {vertices=} {vertices=} ")
     arr = vorarr(images, regions, vertices, points, renderDots=renderDots)
-
     return arr
 
 
@@ -154,11 +132,11 @@ if __name__ == "__main__":
     images = [cv2.resize(cv2.imread(path), (1024, 1024)) for path in image_paths]
     np.set_printoptions(suppress=True)
 
-    prevTime = time.time()
+    prevTime = time()
     while True:
-        timeD = time.time() - prevTime
+        timeD = time() - prevTime
         print(1 / (timeD if timeD > 0 else 0.001))
-        prevTime = time.time()
+        prevTime = time()
 
         arr = points_to_voronoi(images, points, renderDots=True)
         # plot the numpy array

@@ -1,22 +1,17 @@
-import os
-from threading import Thread
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from multiprocessing.queues import Queue
+from time import time
+import multiprocessing
+from typing import Tuple
 from tensorflow.keras.layers import MaxPooling2D
-from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import Conv2D
 from tensorflow.keras.layers import Dense, Dropout, Flatten
 from tensorflow.keras.models import Sequential
 import tensorflow as tf
 import cv2
-import matplotlib.pyplot as plt
-import argparse
 import numpy as np
-from time import sleep, time, process_time_ns
-from tensorflow.python.keras.backend import dtype
 
-from tensorflow.python.keras.utils.generic_utils import to_list
-from realTimeLatentWalk import LatentWalkerController
 from voronoi_image_merge import points_to_voronoi
+from models import PointDatum, Point
 
 # controller = LatentWalkerController()
 
@@ -55,60 +50,76 @@ def getModel():
 # sleep(1)
 
 
-def get_closest_point_and_data(pointMap, p):
-    closest = pointMap[0]
-    closestDistSqr = 6969
+def get_closest_point_and_data(
+    pointMap: list[PointDatum], p: Point
+) -> tuple[PointDatum, float]:
+    closest: PointDatum = pointMap[0]
+    closestDistSqr: float = 6969
 
-    for [point, image, emotions] in pointMap:
-        distSqr = (point[0] - p[0]) ** 2 + (point[1] - p[1]) ** 2
+    for point_datum in pointMap:
+
+        distSqr = (point_datum.point.normalized_x - p.normalized_x) ** 2 + (
+            point_datum.point.normalized_y - p.normalized_y
+        ) ** 2
+
         if distSqr < closestDistSqr:
             closestDistSqr = distSqr
-            closest = [point, image, emotions]
+            closest = point_datum
 
-    return closest[0], closest[1], closest[2], closestDistSqr
+    return closest, closestDistSqr
 
 
-def calculatePointMap(pointMap, points, sampleImages):
+def calculatePointMap(
+    pointMap: list[PointDatum], points: list[Point], sampleImages: list
+) -> list[PointDatum]:
+
     remainingImages = list.copy(sampleImages)
     pointMap = list.copy(pointMap)
     distanceThreshold = 0.2
 
-    newPointMap = []
+    newPointMap: list[PointDatum] = []
 
     pointsToGiveImages = []
-    for p in points:
+    for point in points:
         if len(remainingImages) == 0:
-            print("too many nafarat")
             break
         if len(pointMap) == 0:
-            newPointMap.append([p, remainingImages.pop(0), [[], 0]])
+            point_datum = PointDatum()
+            point_datum.datum = remainingImages.pop(0)
+            point_datum.point = point
+            newPointMap.append(point_datum)
             continue
 
-        closestPoint, image, emotions, distSqrd = get_closest_point_and_data(
-            pointMap, p
-        )
+        closest_point, distSqrd = get_closest_point_and_data(pointMap, point)
 
         if distSqrd < distanceThreshold ** 2:
-            newPointMap.append([p, image, emotions])
-            pointMap.remove([closestPoint, image, emotions])
+            new_point = PointDatum()
+            new_point.datum = closest_point.datum
+            new_point.emotion_label = closest_point.emotion_label
+            new_point.emotions_array = closest_point.emotions_array
+            new_point.point = point
+            newPointMap.append(new_point)
+            pointMap.remove(closest_point)
 
             deleted = False
             for i, im in enumerate(remainingImages):
-                if im == image:
+                if im == closest_point.datum:
                     deleted = True
                     del remainingImages[i]
                     break
             if not deleted:
                 print("why you do dis")
         else:
-            print(f"{p=} {closestPoint=} {distSqrd=}")
-            pointsToGiveImages.append(p)
+            pointsToGiveImages.append(point)
 
-    for p in pointsToGiveImages:
+    for point in pointsToGiveImages:
         if len(remainingImages) == 0:
             print("too many nafarat 2")
             break
-        newPointMap.append([p, remainingImages.pop(0), [[], 0]])
+        point_datum = PointDatum()
+        point_datum.point = point
+        point_datum.datum = remainingImages.pop(0)
+        newPointMap.append(point_datum)
 
     return newPointMap
 
@@ -117,22 +128,8 @@ def calculatePointMap(pointMap, points, sampleImages):
 
 
 def doLoop(dataArr, pointMapQueue):
-    # global pointMap
-    # pointMap = [
-    #     [[-0.5, -0.5], dataArr[0], []],
-    #     [[0.5, 0.5], dataArr[1], []],
-    #     [[-0.25, 0.25], dataArr[2], []],
-    # ]
 
-    # while True:
-    #     sleep(0.1)
-    #     for i in range(3):
-    #         pointMap[i][0][0] += np.random.random() * 0.2 - 0.1
-    #         pointMap[i][0][1] += np.random.random() * 0.2 - 0.1
-    # Create the model
     model = getModel()
-    # prevents openCL usage and unnecessary logging messages
-    cv2.ocl.setUseOpenCL(False)
 
     emotion_dict = {
         0: "Angry",
@@ -148,8 +145,8 @@ def doLoop(dataArr, pointMapQueue):
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     # cap = cv2.VideoCapture("C:/Users/3izzo/Desktop/Projects/Talathum/WIN_20211021_23_20_21_Pro.mp4")
     facecasc = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
-    pointMap = []
-    points = []
+    pointMap: list[PointDatum] = []
+    points: list[Point] = []
     t = time()
     print("starting camera loop")
     while True:
@@ -162,63 +159,29 @@ def doLoop(dataArr, pointMapQueue):
         faces = facecasc.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
 
         # print(faces)
-        points = []
-        for (x, y, w, h) in faces:
+        points = calculate_points_from_faces(frame, faces)
 
-            midFaceX = x + w / 2
-            midFaceY = y + h / 2
-            ratioX = frame.shape[1] / (frame.shape[1] - w)
-            ratioY = frame.shape[0] / (frame.shape[0] - h)
-            point = [
-                (midFaceX / frame.shape[1] * 2 - 1) * ratioX,
-                (midFaceY / frame.shape[0] * 2 - 1) * ratioY,
-            ]
-
-            for i in range(2):
-                if point[i] > 1:
-                    point[i] = 1
-                elif point[i] < -1:
-                    point[i] = -1
-
-            point.append(x)
-            point.append(y)
-            point.append(w)
-            point.append(h)
-            points.append(point)
-
-        # cv2.imshow("Video", cv2.resize(frame, (640, 480), interpolation=cv2.INTER_CUBIC))
         if len(points) > 0:
             pointMap = calculatePointMap(pointMap, points, dataArr)
             pointMapQueue.put(pointMap)
-            for point, image, emotions in pointMap:
-                [x, y, w, h] = point[2:]
-                cv2.rectangle(frame, (x, y - 50), (x + w, y + h + 10), (255, 0, 0), 2)
-                roi_gray = gray[y : y + h, x : x + w]
+            for point_datum in pointMap:
+                p = point_datum.point
+                roi_gray = gray[p.y : p.y + p.h, p.x : p.x + p.w]
                 cropped_img = np.expand_dims(
                     np.expand_dims(cv2.resize(roi_gray, (48, 48)), -1), 0
                 )
                 prediction = model.predict(cropped_img)
                 prediction = prediction[0].tolist()
-                emotions[0].append(prediction)
-                if len(emotions[0]) >= 5:
+                point_datum.emotions_array.append(prediction)
+                if len(point_datum.emotions_array) >= 5:
                     avg = [0, 0, 0, 0, 0, 0, 0]
-                    avg = np.sum(emotions[0], 0).tolist()
+                    avg = np.sum(point_datum.emotions_array, 0).tolist()
                     avg = np.divide(avg, 5).tolist()
                     maxindex = int(np.argmax(avg))
-                    emotions[1] = maxindex
-                    cv2.putText(
-                        frame,
-                        emotion_dict[maxindex],
-                        (x + 20, y - 60),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        1,
-                        (255, 255, 255),
-                        2,
-                        cv2.LINE_AA,
-                    )
-                    emotions[0].pop(0)
+                    point_datum.emotion_label = maxindex
+                    point_datum.emotions_array.pop(0)
         else:
-            pointMapQueue.put([[[0, 0, 0, 0, 0, 0], 0, [[], 0]]])
+            pointMapQueue.put([PointDatum()])
 
         dt = time() - t
         if dt == 0:
@@ -244,6 +207,31 @@ def doLoop(dataArr, pointMapQueue):
     exit()
 
 
+def calculate_points_from_faces(frame, faces) -> list[Point]:
+    points = []
+    for (x, y, w, h) in faces:
+        midFaceX = x + w / 2
+        midFaceY = y + h / 2
+        ratioX = frame.shape[1] / (frame.shape[1] - w)
+        ratioY = frame.shape[0] / (frame.shape[0] - h)
+
+        point = Point()
+
+        point.normalized_x = (midFaceX / frame.shape[1] * 2 - 1) * ratioX
+        point.normalized_y = (midFaceY / frame.shape[0] * 2 - 1) * ratioY
+
+        point.normalized_x = max(min(point.normalized_x, 1), -1)
+        point.normalized_y = max(min(point.normalized_y, 1), -1)
+
+        point.x = x
+        point.y = y
+        point.w = w
+        point.h = h
+
+        points.append(point)
+    return points
+
+
 if __name__ == "__main__":
     sampleImages = [
         cv2.resize(cv2.imread(path), (512, 512))
@@ -255,17 +243,31 @@ if __name__ == "__main__":
         ]
     ]
 
-    camera_thread = Thread(target=doLoop, args=([sampleImages]))
+    pointMapQueue: Queue = multiprocessing.Queue()
+    try:
+        multiprocessing.set_start_method("spawn")
+    except RuntimeError:
+        pass
+    camera_thread = multiprocessing.Process(
+        target=doLoop, args=([0, 1, 2], pointMapQueue), daemon=True
+    )
     camera_thread.start()
-    t = time()
+
+    targetPM: list[PointDatum] = []
     while True:
-        print(1 / (time() - t + 0.000001))
-        t = time()
         cv2.waitKey(1)
-        if len(pointMap) > 0:
+        while pointMapQueue.qsize() > 1:
+            targetPM = pointMapQueue.get()
+
+        if len(targetPM) > 0:
             finalImage = points_to_voronoi(
-                [im for _, im, _ in pointMap],
-                np.array([point[0:2] for point, _, _ in pointMap]),
+                [sampleImages[point_datum.datum] for point_datum in targetPM],
+                np.array(
+                    [
+                        [point_datum.point.normalized_x, point_datum.point.normalized_y]
+                        for point_datum in targetPM
+                    ]
+                ),
                 renderDots=True,
             )
             cv2.imshow(
