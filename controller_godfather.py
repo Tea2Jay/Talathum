@@ -11,8 +11,13 @@ import numpy as np
 from models import PointDatum, Point
 
 
-def smooth(prev: Optional[PointDatum], target: PointDatum) -> Point:
+def smooth(
+    prev: Optional[PointDatum], target: PointDatum, current: Optional[PointDatum]
+) -> Point:
     if prev is None:
+        return target.point
+
+    if current is None:
         return target.point
     t = time()
     deltaTime = target.time - prev.time
@@ -24,26 +29,35 @@ def smooth(prev: Optional[PointDatum], target: PointDatum) -> Point:
         progress = 1
     if progress > 1:
         progress = 1
-    delta = target.point - prev.point
-    res = target.point + delta * progress
 
+    expected_pos = target.point + (target.point - prev.point) * progress
+
+    res = current.point + (expected_pos - current.point) * 0.5
     res.clip_normalized()
+
     return res
 
 
-def smoothPoints(prev: list[PointDatum], target: list[PointDatum]):
+def smoothPoints(
+    prev: list[PointDatum], target: list[PointDatum], current: list[PointDatum]
+):
     newPM: list[PointDatum] = list.copy(target)
 
     for i, point_datum in enumerate(newPM):
         prev_point_datum = None
+        current_point_datum = None
 
+        for point_datum2 in current:
+            if point_datum.datum == point_datum2.datum:
+                current_point_datum = point_datum2
+                break
         for point_datum2 in prev:
             if point_datum.datum == point_datum2.datum:
                 prev_point_datum = point_datum2
                 break
         pd = PointDatum()
         pd.copyFrom(newPM[i])
-        pd.point = smooth(prev_point_datum, point_datum)
+        pd.point = smooth(prev_point_datum, point_datum, current_point_datum)
         newPM[i] = pd
     return newPM
 
@@ -88,7 +102,7 @@ if __name__ == "__main__":
             targetPM = pointMapQueue.get()
 
         if len(targetPM) > 0:
-            pm = smoothPoints(prevPM, targetPM)
+            pm = smoothPoints(prevPM, targetPM, pm)
             localLatentWalkers = [
                 latentWalkers[point_datum.datum] for point_datum in pm
             ]

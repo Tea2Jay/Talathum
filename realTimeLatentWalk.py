@@ -90,7 +90,6 @@ class LatentWalkerController:
             return colorCorrectedImage
 
     def renderLoop(self):
-        t = time()
         while True:
             im = self.getImage()
             if im is not None:

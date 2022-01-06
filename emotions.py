@@ -42,7 +42,7 @@ def getModel():
     model.add(Dense(7, activation="softmax"))
 
     # emotions will be displayed on your face from the webcam feed
-    model.load_weights("model.h5")
+    model.load_weights("models/model.h5")
     return model
 
 
@@ -144,7 +144,7 @@ def doLoop(dataArr, pointMapQueue):
     # start the webcam feed
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     # cap = cv2.VideoCapture("C:/Users/3izzo/Desktop/Projects/Talathum/WIN_20211021_23_20_21_Pro.mp4")
-    facecasc = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
+    facecasc = cv2.CascadeClassifier("models/haarcascade_frontalface_default.xml")
     pointMap: list[PointDatum] = []
     points: list[Point] = []
     t = time()
