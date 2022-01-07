@@ -24,12 +24,12 @@ def adjust_polygon(arr, x, y):
     inter1 = p1.intersection(p2)
     cords = list(inter1.exterior.coords)
 
-    return cords
+    return cords, inter1.centroid
 
 
 def center_around_point(image, output_x, output_y, point):
-    norm_x = (point[0] + 1) / 2
-    norm_y = (point[1] + 1) / 2
+    norm_x = point.x / output_x
+    norm_y = point.y / output_y
 
     center_x_in_pixels = int(norm_x * output_x)
     center_y_in_pixels = int(norm_y * output_y)
@@ -77,10 +77,7 @@ def center_around_point(image, output_x, output_y, point):
         int(output_x - end_x),
         cv2.BORDER_REFLECT,
     )
-    # print(f"{padded_image.shape=} {padded_image.dtype=} ")
 
-    # cv2.imshow("padded_image", padded_image)
-    # cv2.waitKey(0)
     return padded_image
 
 
@@ -91,10 +88,10 @@ def merge_images(
     y, x = output_image_size
     res = np.zeros((y, x, 3), dtype=images[0].dtype)
     for i, (region, image, point) in enumerate(zip(regions, images, points)):
-        clippedPolygon = adjust_polygon(vertices[region], x, y)
+        clippedPolygon, centroid = adjust_polygon(vertices[region], x, y)
         clippedPolygon = np.array(clippedPolygon, dtype=np.int32)
 
-        image = center_around_point(image, x, y, point)
+        image = center_around_point(image, x, y, centroid)
         mask = np.zeros([image.shape[0], image.shape[1], 1], dtype=image.dtype)
         mask = cv2.fillConvexPoly(mask, clippedPolygon, 1)
 
@@ -216,7 +213,7 @@ if __name__ == "__main__":
         prevTime = time()
 
         arr = points_to_voronoi(
-            images, points, output_image_size=(720, 1280), renderDots=True
+            images, points, output_image_size=(1080, 1920), renderDots=True
         )
         # plot the numpy array
         cv2.imshow("", arr)
