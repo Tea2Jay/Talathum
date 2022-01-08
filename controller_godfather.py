@@ -10,6 +10,7 @@ import emotions
 from voronoi_image_merge import points_to_voronoi
 import numpy as np
 from models import PointDatum, Point
+import psutil
 
 
 def smooth(
@@ -87,6 +88,9 @@ if __name__ == "__main__":
     camera_thread = multiprocessing.Process(
         target=emotions.doLoop, args=(latentIdxs, pointMapQueue), daemon=True
     )
+    p = psutil.Process(camera_thread.pid)
+    p.nice(psutil.HIGH_PRIORITY_CLASS)
+
     camera_thread.start()
 
     prevPM: list[PointDatum] = []
