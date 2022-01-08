@@ -12,6 +12,8 @@ import numpy as np
 
 from voronoi_image_merge import points_to_voronoi
 from models import PointDatum, Point
+import multiprocessing.dummy as mp
+from multiprocessing.pool import ThreadPool
 
 # controller = LatentWalkerController()
 
@@ -140,7 +142,7 @@ def doLoop(dataArr, pointMapQueue):
         5: "Sad",
         6: "Surprised",
     }
-
+    pool: ThreadPool = mp.Pool(len(dataArr))
     # start the webcam feed
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     # cap = cv2.VideoCapture("C:/Users/3izzo/Desktop/Projects/Talathum/WIN_20211021_23_20_21_Pro.mp4")
@@ -164,22 +166,13 @@ def doLoop(dataArr, pointMapQueue):
         if len(points) > 0:
             pointMap = calculatePointMap(pointMap, points, dataArr)
             pointMapQueue.put(pointMap)
-            for point_datum in pointMap:
-                p = point_datum.point
-                roi_gray = gray[p.y : p.y + p.h, p.x : p.x + p.w]
-                cropped_img = np.expand_dims(
-                    np.expand_dims(cv2.resize(roi_gray, (48, 48)), -1), 0
-                )
-                prediction = model.predict(cropped_img)
-                prediction = prediction[0].tolist()
-                point_datum.emotions_array.append(prediction)
-                if len(point_datum.emotions_array) >= 5:
-                    avg = [0, 0, 0, 0, 0, 0, 0]
-                    avg = np.sum(point_datum.emotions_array, 0).tolist()
-                    avg = np.divide(avg, 5).tolist()
-                    maxindex = int(np.argmax(avg))
-                    point_datum.emotion_label = maxindex
-                    point_datum.emotions_array.pop(0)
+            pool.starmap(
+                process_point_datum,
+                [
+                    (model, emotion_dict, frame, gray, point_datum)
+                    for point_datum in pointMap
+                ],
+            )
         else:
             pointMapQueue.put([PointDatum()])
 
@@ -205,6 +198,35 @@ def doLoop(dataArr, pointMapQueue):
     cap.release()
     cv2.destroyAllWindows()
     exit()
+
+
+def process_point_datum(model, emotion_dict, frame, gray, point_datum):
+    p = point_datum.point
+    cv2.rectangle(frame, (p.x, p.y - 50), (p.x + p.w, p.y + p.h + 10), (255, 0, 0), 2)
+
+    roi_gray = gray[p.y : p.y + p.h, p.x : p.x + p.w]
+    cropped_img = np.expand_dims(np.expand_dims(cv2.resize(roi_gray, (48, 48)), -1), 0)
+    prediction = model.predict(cropped_img)
+
+    prediction = prediction[0].tolist()
+    point_datum.emotions_array.append(prediction)
+    if len(point_datum.emotions_array) >= 5:
+        avg = [0, 0, 0, 0, 0, 0, 0]
+        avg = np.sum(point_datum.emotions_array, 0).tolist()
+        avg = np.divide(avg, 5).tolist()
+        maxindex = int(np.argmax(avg))
+        point_datum.emotion_label = maxindex
+        point_datum.emotions_array.pop(0)
+        cv2.putText(
+            frame,
+            emotion_dict[maxindex],
+            (p.x + 20, p.y - 60),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (255, 255, 255),
+            2,
+            cv2.LINE_AA,
+        )
 
 
 def calculate_points_from_faces(frame, faces) -> list[Point]:
